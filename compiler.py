@@ -11,6 +11,7 @@ INVALID_TOKENS = [
 ]
 
 IGNORED_TOKENS = [
+    ('whitespace', re.compile(r'\A\s+')),
     ('comment', re.compile(r'\A\/\*[^*/]*\*\/')),
     ('inline_comment', re.compile(r'\A//.*')),
 ]
@@ -80,50 +81,92 @@ VALID_TOKENS = [
 EXTRA_VALIDATORS = defaultdict(lambda: lambda x: True)
 EXTRA_VALIDATORS['int'] = lambda x: -32767 <= int(x) <= 32767
 
-Token = namedtuple('Token', ['type', 'value'])
+Token = namedtuple('Token', ['type', 'value', 'pos'])
 
 class Lexer:
     def advance_from_match(self, match):
-        endpos = match.span()[1]
-        self.source = self.source[endpos:].lstrip()
+        right_of_match = match.span()[1]
+        self.cursor.advance(right_of_match)
 
     def __init__(self, source):
-        self.source = source
+        self.cursor = StringCursor(source)
+
+    def source(self):
+        return self.cursor.rest()
 
     def tokenize(self):
         tokens = []
-        while len(self.source) > 0:
-            #print('source to lex: "%s"' % self.source)
+        while len(self.source()) > 0:
+            #print('source to lex: "%s"' % self.source())
             for name, regex in INVALID_TOKENS:
-                if regex.search(self.source):
-                    raise ValueError(name)
+                if regex.search(self.source()):
+                    pos = self.cursor.position()
+                    raise ValueError('%s on (%d, %d)' % (name, pos.row, pos.col))
 
             for name, regex in IGNORED_TOKENS:
-                match = regex.search(self.source)
+                match = regex.search(self.source())
                 if match:
                     print('Ignored token: ', name)
+                    print('Ignored token match: ', match.group())
                     self.advance_from_match(match)
                     break
             else:
                 found_token = False
 
                 for name, regex in VALID_TOKENS:
-                    match = regex.search(self.source)
+                    match = regex.search(self.source())
                     if match and EXTRA_VALIDATORS[name](match.group()):
                         found_token = True
                         #print('Matched token: ', name)
                         #print('Match: ', match.span())
 
                         value = match.group() if len(match.groups()) == 0 else match.group(1)
-                        token = Token(type=name, value=value)
+                        token = Token(type=name, value=value, pos=self.cursor.position())
                         tokens.append(token)
                         self.advance_from_match(match)
                         break
 
                 if not found_token:
-                    raise ValueError('Couldn\'t tokenize: `%s`' % self.source)
-            #print('source after lex: "%s"' % self.source)
+                    raise ValueError('Couldn\'t tokenize: `%s`' % self.source())
+            #print('source after lex: "%s"' % self.source())
         return tokens
+
+class StringCursor:
+    def __init__(self, string):
+        self.string = string
+        self.char_pos = 0 # in chars
+        self.pos = CursorPosition(1, 1)
+
+    def advance(self, nchars):
+        newline = re.compile(r'\r\n|\r|\n')
+        new_char_pos = self.char_pos + nchars
+
+        if new_char_pos > len(self.string):
+            raise ValueError('Tried to move past the end of the string `%s`.' % self.rest())
+
+        linebreaks = list(newline.finditer(self.string, pos=self.char_pos, endpos=new_char_pos))
+        #print('found linebreaks: ', linebreaks)
+
+        inbetween_rows = len(linebreaks)
+        row = self.pos.row
+        col = self.pos.col
+        if inbetween_rows > 0:
+            pos_of_current_line_start = linebreaks[-1].span()[1]
+            row += inbetween_rows
+            col = new_char_pos - pos_of_current_line_start + 1
+        else:
+            col += nchars
+
+        self.char_pos = new_char_pos
+        self.pos = CursorPosition(row, col)
+
+    def rest(self):
+        return self.string[self.char_pos:]
+
+    def position(self):
+        return self.pos
+
+CursorPosition = namedtuple('CursorPosition', ['row', 'col'])
 
 source = """program example3
    declare a,b,c,d,e,x,y,px,py,temp enddeclare
