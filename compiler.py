@@ -59,7 +59,7 @@ VALID_TOKENS = [
     ('colon', re.compile(r'\A:')),
     ('comma', re.compile(r'\A,')),
 
-    ('id', re.compile(r'\A[a-zA-Z][a-zA-Z0-9]*')),
+    ('id', re.compile(r'\A([a-zA-Z][a-zA-Z0-9]{0,29})[a-zA-Z0-9]*')),
     ('int', re.compile(r'\A\b\d+\b')),
     ('plus', re.compile(r'\A\+')),
     ('minus', re.compile(r'\A-')),
