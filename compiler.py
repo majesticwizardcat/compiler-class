@@ -168,28 +168,10 @@ class StringCursor:
 
 CursorPosition = namedtuple('CursorPosition', ['row', 'col'])
 
-source = """program example3
-   declare a,b,c,d,e,x,y,px,py,temp enddeclare
-   repeat
-      if not [a<c and b<d] then
-        exit
-      endif;
-      if a=e then
-   c:=c+e;
-      else
-   repeat // est
-            if not [a<=d] then                    
-                    exit /* lol */
-    /* agapo
-            hh    ti mana
-    su */
-      endif;
-            a:=a+b;
-         endrepeat
-      endif
-   endrepeat;
-   temp:=px;
-   x:=1;
-   a1234567890123456789012345678901234567890:=2847
-endprogram"""
-pp(Lexer(source).tokenize())
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument('source_file')
+args = parser.parse_args()
+with open(args.source_file, 'r') as source_file:
+    source = source_file.read()
+    pp(Lexer(source).tokenize())
