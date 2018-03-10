@@ -90,9 +90,10 @@ class Lexer:
         self.source = self.source[endpos:].lstrip()
 
     def __init__(self, source):
-        self.tokens = []
         self.source = source
 
+    def tokenize(self):
+        tokens = []
         while len(self.source) > 0:
             #print('source to lex: "%s"' % self.source)
             for name, regex in INVALID_TOKENS:
@@ -112,14 +113,19 @@ class Lexer:
                     match = regex.search(self.source)
                     if match and EXTRA_VALIDATORS[name](match.group()):
                         found_token = True
-                        print('Matched token: ', name)
+                        #print('Matched token: ', name)
                         #print('Match: ', match.span())
+
+                        value = match.group() if len(match.groups()) == 0 else match.group(1)
+                        token = Token(type=name, value=value)
+                        tokens.append(token)
                         self.advance_from_match(match)
                         break
 
                 if not found_token:
                     raise ValueError('Couldn\'t tokenize: `%s`' % self.source)
             #print('source after lex: "%s"' % self.source)
+        return tokens
 
 source = """program example3
    declare a,b,c,d,e,x,y,px,py,temp enddeclare
@@ -143,6 +149,6 @@ source = """program example3
    endrepeat;
    temp:=px;
    x:=1;
-   y:=2847389247982378972;
+   a1234567890123456789012345678901234567890:=2847
 endprogram"""
-lex = Lexer(source)
+pp(Lexer(source).tokenize())
