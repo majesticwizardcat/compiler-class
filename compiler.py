@@ -1,4 +1,4 @@
-from typing import Iterator
+from typing import Iterator, List, Dict, Callable
 
 from collections import namedtuple, defaultdict
 from itertools import tee
@@ -79,7 +79,7 @@ VALID_TOKENS = [
     ('neq', re.compile(r'\A<>')),
 ]
 
-EXTRA_VALIDATORS = defaultdict(lambda: lambda x: True)
+EXTRA_VALIDATORS: Dict[str, Callable[[str], bool]] = defaultdict(lambda: lambda x: True)
 EXTRA_VALIDATORS['int'] = lambda x: -32767 <= int(x) <= 32767
 
 Token = namedtuple('Token', ['type', 'value'])
@@ -89,10 +89,10 @@ class Lexer:
         endpos = match.span()[1]
         self.source = self.source[endpos:].lstrip()
 
-    def __init__(self, source):
+    def __init__(self, source: str) -> None:
         self.source = source
 
-    def tokenize(self):
+    def tokenize(self) -> List[Token]:
         tokens = []
         while len(self.source) > 0:
             #print('source to lex: "%s"' % self.source)
