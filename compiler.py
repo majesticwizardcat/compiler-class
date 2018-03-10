@@ -85,31 +85,36 @@ Token = namedtuple('Token', ['type', 'value'])
 
 class Lexer:
     def advance_from_match(self, match):
-        endpos = match.span()[1]
-        self.source = self.source[endpos:]
+        right_of_match = match.span()[1]
+        self.cursor.advance(right_of_match)
 
     def __init__(self, source):
-        self.source = source
+        self.cursor = StringCursor(source)
+
+    def source(self):
+        return self.cursor.rest()
 
     def tokenize(self):
         tokens = []
-        while len(self.source) > 0:
-            #print('source to lex: "%s"' % self.source)
+        while len(self.source()) > 0:
+            #print('source to lex: "%s"' % self.source())
             for name, regex in INVALID_TOKENS:
-                if regex.search(self.source):
-                    raise ValueError(name)
+                if regex.search(self.source()):
+                    row, col = self.cursor.coords()
+                    raise ValueError('%s on (%d, %d)' % (name, row, col))
 
             for name, regex in IGNORED_TOKENS:
-                match = regex.search(self.source)
+                match = regex.search(self.source())
                 if match:
                     print('Ignored token: ', name)
+                    print('Ignored token match: ', match.group())
                     self.advance_from_match(match)
                     break
             else:
                 found_token = False
 
                 for name, regex in VALID_TOKENS:
-                    match = regex.search(self.source)
+                    match = regex.search(self.source())
                     if match and EXTRA_VALIDATORS[name](match.group()):
                         found_token = True
                         #print('Matched token: ', name)
@@ -122,9 +127,43 @@ class Lexer:
                         break
 
                 if not found_token:
-                    raise ValueError('Couldn\'t tokenize: `%s`' % self.source)
-            #print('source after lex: "%s"' % self.source)
+                    raise ValueError('Couldn\'t tokenize: `%s`' % self.source())
+            #print('source after lex: "%s"' % self.source())
         return tokens
+
+class StringCursor:
+    def __init__(self, string):
+        self.string = string
+        self.pos = 0
+
+        self.row = 1
+        self.col = 1
+
+    def advance(self, nchars):
+        newline = re.compile(r'\r\n|\r|\n')
+        newpos = self.pos + nchars
+
+        if newpos > len(self.string):
+            raise ValueError('Tried to move past the end of the string `%s`.' % self.rest())
+
+        linebreaks = list(newline.finditer(self.string, pos=self.pos, endpos=newpos))
+        #print('found linebreaks: ', linebreaks)
+
+        inbetween_rows = len(linebreaks)
+        if inbetween_rows > 0:
+            pos_of_current_line_start = linebreaks[-1].span()[1]
+            self.row += inbetween_rows
+            self.col = newpos - pos_of_current_line_start + 1
+        else:
+            self.col += nchars
+
+        self.pos = newpos
+
+    def rest(self):
+        return self.string[self.pos:]
+
+    def coords(self):
+        return (self.row, self.col)
 
 source = """program example3
    declare a,b,c,d,e,x,y,px,py,temp enddeclare
