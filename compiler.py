@@ -11,6 +11,7 @@ INVALID_TOKENS = [
 ]
 
 IGNORED_TOKENS = [
+    ('whitespace', re.compile(r'\A\s+')),
     ('comment', re.compile(r'\A\/\*[^*/]*\*\/')),
     ('inline_comment', re.compile(r'\A//.*')),
 ]
@@ -85,7 +86,7 @@ Token = namedtuple('Token', ['type', 'value'])
 class Lexer:
     def advance_from_match(self, match):
         endpos = match.span()[1]
-        self.source = self.source[endpos:].lstrip()
+        self.source = self.source[endpos:]
 
     def __init__(self, source):
         self.source = source
