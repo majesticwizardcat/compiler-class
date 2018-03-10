@@ -100,8 +100,8 @@ class Lexer:
             #print('source to lex: "%s"' % self.source())
             for name, regex in INVALID_TOKENS:
                 if regex.search(self.source()):
-                    row, col = self.cursor.coords()
-                    raise ValueError('%s on (%d, %d)' % (name, row, col))
+                    pos = self.cursor.position()
+                    raise ValueError('%s on (%d, %d)' % (name, pos.row, pos.col))
 
             for name, regex in IGNORED_TOKENS:
                 match = regex.search(self.source())
@@ -134,36 +134,39 @@ class Lexer:
 class StringCursor:
     def __init__(self, string):
         self.string = string
-        self.pos = 0
-
-        self.row = 1
-        self.col = 1
+        self.char_pos = 0 # in chars
+        self.pos = CursorPosition(1, 1)
 
     def advance(self, nchars):
         newline = re.compile(r'\r\n|\r|\n')
-        newpos = self.pos + nchars
+        new_char_pos = self.char_pos + nchars
 
-        if newpos > len(self.string):
+        if new_char_pos > len(self.string):
             raise ValueError('Tried to move past the end of the string `%s`.' % self.rest())
 
-        linebreaks = list(newline.finditer(self.string, pos=self.pos, endpos=newpos))
+        linebreaks = list(newline.finditer(self.string, pos=self.char_pos, endpos=new_char_pos))
         #print('found linebreaks: ', linebreaks)
 
         inbetween_rows = len(linebreaks)
+        row = self.pos.row
+        col = self.pos.col
         if inbetween_rows > 0:
             pos_of_current_line_start = linebreaks[-1].span()[1]
-            self.row += inbetween_rows
-            self.col = newpos - pos_of_current_line_start + 1
+            row += inbetween_rows
+            col = new_char_pos - pos_of_current_line_start + 1
         else:
-            self.col += nchars
+            col += nchars
 
-        self.pos = newpos
+        self.char_pos = new_char_pos
+        self.pos = CursorPosition(row, col)
 
     def rest(self):
-        return self.string[self.pos:]
+        return self.string[self.char_pos:]
 
-    def coords(self):
-        return (self.row, self.col)
+    def position(self):
+        return self.pos
+
+CursorPosition = namedtuple('CursorPosition', ['row', 'col'])
 
 source = """program example3
    declare a,b,c,d,e,x,y,px,py,temp enddeclare
