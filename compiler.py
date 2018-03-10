@@ -3,6 +3,9 @@ from typing import Iterator
 from collections import namedtuple, defaultdict
 from itertools import tee
 import re
+import pprint
+
+pp = pprint.PrettyPrinter().pprint
 
 INVALID_TOKENS = [
     ('ccomment', re.compile(r'\A\*\/')), # should normally be consumed via IGNORED_TOKENS's comment, otherwise there was no comment open
