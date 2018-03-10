@@ -117,8 +117,8 @@ class Lexer:
                     match = regex.search(self.source())
                     if match and EXTRA_VALIDATORS[name](match.group()):
                         found_token = True
-                        print('Matched token: ', name)
-                        print('Match: ', match.span())
+                        #print('Matched token: ', name)
+                        #print('Match: ', match.span())
 
                         value = match.group() if len(match.groups()) == 0 else match.group(1)
                         token = Token(type=name, value=value, pos=self.cursor.position())
