@@ -81,7 +81,7 @@ VALID_TOKENS = [
 EXTRA_VALIDATORS = defaultdict(lambda: lambda x: True)
 EXTRA_VALIDATORS['int'] = lambda x: -32767 <= int(x) <= 32767
 
-Token = namedtuple('Token', ['type', 'value'])
+Token = namedtuple('Token', ['type', 'value', 'pos'])
 
 class Lexer:
     def advance_from_match(self, match):
@@ -121,7 +121,7 @@ class Lexer:
                         #print('Match: ', match.span())
 
                         value = match.group() if len(match.groups()) == 0 else match.group(1)
-                        token = Token(type=name, value=value)
+                        token = Token(type=name, value=value, pos=self.cursor.position())
                         tokens.append(token)
                         self.advance_from_match(match)
                         break
