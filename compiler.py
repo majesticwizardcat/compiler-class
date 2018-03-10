@@ -106,8 +106,8 @@ class Lexer:
             for name, regex in IGNORED_TOKENS:
                 match = regex.search(self.source())
                 if match:
-                    print('Ignored token: ', name)
-                    print('Ignored token match: ', match.group())
+                    #print('Ignored token: ', name)
+                    #print('Ignored token match: ', match.group())
                     self.advance_from_match(match)
                     break
             else:
@@ -168,10 +168,317 @@ class StringCursor:
 
 CursorPosition = namedtuple('CursorPosition', ['row', 'col'])
 
+class SyntaxAnal:
+    def __init__(self, tokens):
+        self.tokens = tokens   
+
+    def check_syntax(self):
+        self.parse_program()
+
+    def consume(self, type):
+        if self.tokens[0].type == type:
+            # print('consumed %s ' % type)
+            return self.tokens.pop(0)
+        else:
+            raise ValueError('Syntax error: Expected %s but found %s' % (type, self.tokens[0].type))
+            
+    def peek(self, type):
+        return self.tokens[0].type == type
+
+    def parse_program(self):
+        self.consume('program')
+        self.consume('id')
+        self.parse_block()
+        self.consume('endprogram')
+    
+    def parse_block(self):
+        self.parse_declarations()
+        self.parse_subprograms()
+        self.parse_statements()
+
+    def parse_declarations(self):
+        if self.peek('declare'):
+            self.consume('declare')
+            self.parse_varlist()
+            self.consume('enddeclare')
+
+    def parse_varlist(self):
+        if self.peek('id'):
+            self.consume('id')
+
+            while self.peek('comma'):
+                self.consume('comma')
+                self.consume('id')
+    
+    def parse_subprograms(self):
+        while self.peek('procedure') or self.peek('function'):
+            self.parse_procorfunc()
+
+    def parse_procorfunc(self):
+        if self.peek('procedure'):
+            self.consume('procedure')
+            self.consume('id')
+            self.parse_procorfuncbody()
+            self.consume('endprocedure')
+        else:
+            self.consume('function')
+            self.consume('id')
+            self.parse_procorfuncbody()
+            self.consume('endfunction')
+
+    def parse_procorfuncbody(self):
+        self.parse_formalpars()
+        self.parse_block()
+        
+    def parse_formalpars(self):
+        self.consume('oparen')
+        self.parse_formalparlist()
+        self.consume('cparen')
+
+    def parse_formalparlist(self):
+        if self.peek('in') or self.peek('inout'):
+            self.parse_formalparitem()
+
+            while self.peek('comma'):
+                self.consume('comma')
+                self.parse_formalparitem()
+
+    def parse_formalparitem(self):
+        if self.peek('in'):
+            self.consume('in')
+        else:
+            self.consume('inout')
+
+        self.consume('id')
+
+    def parse_statements(self):
+        self.parse_statement()
+
+        while self.peek('semicolon'):
+            self.consume('semicolon')
+            self.parse_statement()
+
+    def parse_statement(self):
+        if self.peek('id'):
+            self.parse_assignmentstat()
+        elif self.peek('if'):
+            self.parse_ifstat()
+        elif self.peek('while'):
+            self.parse_whilestat()
+        elif self.peek('repeat'):
+            self.parse_repeatstat()
+        elif self.peek('exit'):
+            self.parse_exitstat()
+        elif self.peek('switch'):
+            self.parse_switchstat()
+        elif self.peek('forcase'):
+            self.parse_forcasestat()
+        elif self.peek('call'):
+            self.parse_callstat()
+        elif self.peek('return'):
+            self.parse_returnstat()
+        elif self.peek('input'):
+            self.parse_inputstat()
+        elif self.peek('print'):
+            self.parse_printstat()
+       
+    def parse_assignmentstat(self):
+        self.consume('id')
+        self.consume('assign')
+        self.parse_expression();
+
+    def parse_ifstat(self):
+        self.consume('if')
+        self.parse_condition()
+        self.consume('then')
+        self.parse_statements()
+        self.parse_elsepart()
+        self.consume('endif')
+
+    def parse_elsepart(self):
+        if self.peek('else'):
+            self.consume('else')
+            self.parse_statements()
+
+    def parse_repeatstat(self):
+        self.consume('repeat')
+        self.parse_statements()
+        self.consume('endrepeat')
+
+    def parse_exitstat(self):
+        self.consume('exit')
+
+    def parse_whilestat(self):
+        self.consume('while')
+        self.parse_condition()
+        self.parse_statements()
+        self.consume('endwhile')
+
+    def parse_switchstat(self):
+        self.consume('switch')
+        self.parse_expression()
+        self.consume('case')
+        self.parse_expression()
+        self.consume('colon')
+        self.parse_statements()
+
+        while self.peek('case'):
+            self.consume('case')
+            self.parse_expression()
+            self.consume('colon')
+            self.parse_statements()
+        
+        self.consume('endswitch')
+
+    def parse_forcasestat(self):
+        self.consume('when')
+        self.parse_condition()
+        self.consume('colon')
+        self.parse_statements()
+
+        while self.peek('when'):
+            self.consume('when')
+            self.parse_condition()
+            self.consume('colon')
+            self.parse_statements()
+
+        self.consume('endforcase')
+
+    def parse_callstat(self):
+        self.consume('call')
+        self.consume('id')
+        self.parse_actualpars()
+
+    def parse_returnstat(self):
+        self.consume('return')
+        self.parse_expression()
+
+    def parse_printstat(self):
+        self.consume('print')
+        self.parse_expression()
+
+    def parse_inputstat(self):
+        self.consume('input')
+        self.consume('id')
+
+    def parse_actualpars(self):
+        self.consume('oparen')
+        self.parse_actualparlist()
+        self.consume('cparen')
+
+    def parse_actualparlist():
+        if self.peek('in') or self.peek('inout'):
+            self.parse_actualparitem()
+
+            while self.peek('comma'):
+                self.consume('comma')
+                self.parse_actualparitem()
+
+    def parse_actualparitem(self):
+        if self.peek('in'):
+            self.consume('in')
+            self.parse_expression()
+        else:
+            self.consume('inout')
+            self.consume('id')
+
+    def parse_condition(self):
+        self.parse_boolterm()
+        
+        while self.peek('or'):
+            self.consume('or')
+            self.parse_boolterm()
+
+    def parse_boolterm(self):
+        self.parse_boolfactor()
+
+        while self.peek('and'):
+            self.consume('and')
+            self.parse_boolfactor()
+
+    def parse_boolfactor(self):
+        if self.peek('not'):
+            self.consume('not')
+            self.consume('obracket')
+            self.parse_condition()
+            self.consume('cbracket')
+        elif self.peek('obracket'):
+            self.consume('obracket')
+            self.parse_condition()
+            self.consume('cbracket')
+        elif self.peek('true'):
+            self.consume('true')
+        elif self.peek('false'):
+            self.consume('false')
+        else:
+            self.parse_expression()
+            self.parse_relationaloper()
+            self.parse_expression()
+
+    def parse_expression(self):
+        self.parse_optionalsign()
+        self.parse_term()
+
+        while self.peek('plus') or self.peek('minus'):
+            self.parse_addoper()
+            self.parse_term()
+
+    def parse_term(self):
+        self.parse_factor()
+
+        while self.peek('mul') or self.peek('div'):
+            self.parse_muloper()
+
+    def parse_factor(self):
+        if self.peek('oparen'):
+            self.consume('oparen')
+            self.parse_expression()
+            sefl.consume('cparen')
+        elif self.peek('id'):
+            self.consume('id')
+            self.parse_idtail()
+        else:
+           self.consume('int')
+
+    def parse_idtail(self):
+        if self.peek('oparen'):
+            self.parse_actualpars()
+
+    def parse_relationaloper(self):
+        if self.peek('eq'):
+            self.consume('eq')
+        elif self.peek('le'):
+            self.consume('le')
+        elif self.peek('ge'):
+            self.consume('ge')
+        elif self.peek('lt'):
+            self.consume('lt')
+        elif self.peek('gt'):
+            self.consume('gt')
+        else: 
+            self.consume('neq')
+
+    def parse_addoper(self):
+        if self.peek('plus'):
+            self.consume('plus')
+        else:
+            self.consume('minus')
+
+    def parse_mulope(self):
+        if self.peek('mul'):
+            self.consume('mul')
+        else:
+            self.consume('div')
+
+    def parse_optionalsign(self):
+        if self.peek('plus') or self.peek('minus'):
+            self.parse_addoper()
+
 import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('source_file')
 args = parser.parse_args()
 with open(args.source_file, 'r') as source_file:
     source = source_file.read()
-    pp(Lexer(source).tokenize())
+    tokens = Lexer(source).tokenize()
+    SyntaxAnal(tokens)
