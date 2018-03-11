@@ -71,12 +71,12 @@ VALID_TOKENS = [
     ('obracket', re.compile(r'\A\[')),
     ('cbracket', re.compile(r'\A\]')),
 
+    ('neq', re.compile(r'\A<>')),
     ('ge', re.compile(r'\A>=')),
     ('le', re.compile(r'\A<=')),
     ('gt', re.compile(r'\A>')),
     ('lt', re.compile(r'\A<')),
     ('eq', re.compile(r'\A=')),
-    ('neq', re.compile(r'\A<>')),
 ]
 
 EXTRA_VALIDATORS = defaultdict(lambda: lambda x: True)
@@ -178,7 +178,7 @@ class SyntaxAnal:
 
     def consume(self, type):
         if self.tokens[0].type == type:
-            # print('consumed %s ' % type)
+            #print('consumed %s ' % type)
             return self.tokens.pop(0)
         else:
             raise ValueError('Syntax error: Expected %s but found %s' % (type, self.tokens[0].type))
@@ -367,7 +367,7 @@ class SyntaxAnal:
         self.parse_actualparlist()
         self.consume('cparen')
 
-    def parse_actualparlist():
+    def parse_actualparlist(self):
         if self.peek('in') or self.peek('inout'):
             self.parse_actualparitem()
 
@@ -429,6 +429,7 @@ class SyntaxAnal:
 
         while self.peek('mul') or self.peek('div'):
             self.parse_muloper()
+            self.parse_factor()
 
     def parse_factor(self):
         if self.peek('oparen'):
@@ -465,7 +466,7 @@ class SyntaxAnal:
         else:
             self.consume('minus')
 
-    def parse_mulope(self):
+    def parse_muloper(self):
         if self.peek('mul'):
             self.consume('mul')
         else:
@@ -482,4 +483,4 @@ args = parser.parse_args()
 with open(args.source_file, 'r') as source_file:
     source = source_file.read()
     tokens = Lexer(source).tokenize()
-    SyntaxAnal(tokens)
+    SyntaxAnal(tokens).check_syntax()
