@@ -1,3 +1,4 @@
+#Karantias Konstantinos 2454 cse32454 Goulioumis Ioannis 2232 cse32232
 from collections import namedtuple, defaultdict
 from itertools import tee
 import re
