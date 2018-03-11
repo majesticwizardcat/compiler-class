@@ -83,6 +83,19 @@ EXTRA_VALIDATORS = defaultdict(lambda: lambda x: True)
 EXTRA_VALIDATORS['int'] = lambda x: -32767 <= int(x) <= 32767
 
 Token = namedtuple('Token', ['type', 'value', 'pos'])
+ErrorMessage = namedtuple('ErrorMessage', ['msg', 'sgst'])
+
+LEX_ERROR_MESSAGES = defaultdict(lambda: ErrorMessage(msg='Invalid token', sgst=''))
+LEX_ERROR_MESSAGES['unshut_comment']  = ErrorMessage(msg='End of file after comment opened', sgst='')
+LEX_ERROR_MESSAGES['ccomment'] = ErrorMessage(msg='Missing open comment token', sgst='')
+LEX_ERROR_MESSAGES['illegal_char'] = ErrorMessage(msg='Illegal character', sgst='')
+
+SYNTAX_ERROR_MESSAGES = defaultdict(lambda: lambda unexpected_token: ErrorMessage(msg='Syntax error: Expected token `%s`' % unexpected_token, sgst=''))
+SYNTAX_ERROR_MESSAGES['id'] = lambda unexpected_token: ErrorMessage(msg='Syntax error: Expected token `%s`' % unexpected_token, sgst='Maybe a ";" or a "," is missing')
+
+def error(error, token):
+    raise ValueError('%s, found %s "%s" at: line %d, column %d. %s' % (error.msg, token.type, token.value, token.pos.row, token.pos.col, error.sgst))
+
 
 class Lexer:
     def advance_from_match(self, match):
@@ -100,9 +113,11 @@ class Lexer:
         while len(self.source()) > 0:
             #print('source to lex: "%s"' % self.source())
             for name, regex in INVALID_TOKENS:
-                if regex.search(self.source()):
-                    pos = self.cursor.position()
-                    raise ValueError('%s on (%d, %d)' % (name, pos.row, pos.col))
+                match = regex.search(self.source())
+                if match:
+                    value = match.group()
+                    invalid_token = Token(type=name, value=value, pos=self.cursor.position())
+                    error(LEX_ERROR_MESSAGES[name], invalid_token)
 
             for name, regex in IGNORED_TOKENS:
                 match = regex.search(self.source())
@@ -128,7 +143,9 @@ class Lexer:
                         break
 
                 if not found_token:
-                    raise ValueError('Couldn\'t tokenize: `%s`' % self.source())
+                    invalid_char = self.source().split()[0]
+                    illegal_token = Token(type=invalid_char[:1], value=invalid_char, pos=self.cursor.position())
+                    error(LEX_ERROR_MESSAGES['illegal_char'], illegal_token)
             #print('source after lex: "%s"' % self.source())
         return tokens
 
@@ -177,13 +194,18 @@ class SyntaxAnal:
         self.parse_program()
 
     def consume(self, type):
+        #print('Trying to cunsume %s' % type)
+        if len(self.tokens) == 0:
+            raise ValueError('Syntax Error: Unexpected EOF. Maybe endprogram is missing')
         if self.tokens[0].type == type:
             #print('consumed %s ' % type)
             return self.tokens.pop(0)
         else:
-            raise ValueError('Syntax error: Expected %s but found %s' % (type, self.tokens[0].type))
+            error(SYNTAX_ERROR_MESSAGES[self.tokens[0].type](type), self.tokens[0])
             
     def peek(self, type):
+        if len(self.tokens) == 0:
+            raise ValueError('Syntax Error: Unexpected EOF. Maybe endprogram is missing')
         return self.tokens[0].type == type
 
     def parse_program(self):
