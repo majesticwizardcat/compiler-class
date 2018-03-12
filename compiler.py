@@ -376,6 +376,7 @@ class SyntaxAnal:
         self.consume('endswitch')
 
     def parse_forcasestat(self):
+        self.consume('forcase')
         self.consume('when')
         self.parse_condition()
         self.consume('colon')
