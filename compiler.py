@@ -193,20 +193,21 @@ class SyntaxAnal:
     def check_syntax(self):
         self.parse_program()
 
+    def peek_type(self):
+        return self.tokens[0].type
+
     def consume(self, type):
         #print('Trying to cunsume %s' % type)
-        if len(self.tokens) == 0:
-            raise ValueError('Syntax Error: Unexpected EOF. Maybe endprogram is missing')
-        if self.tokens[0].type == type:
+        if self.peek(type):
             #print('consumed %s ' % type)
             return self.tokens.pop(0)
         else:
-            error(SYNTAX_ERROR_MESSAGES[self.tokens[0].type](type), self.tokens[0])
+            error(SYNTAX_ERROR_MESSAGES[self.peek_type()](type), self.tokens[0])
             
     def peek(self, type):
         if len(self.tokens) == 0:
             raise ValueError('Syntax Error: Unexpected EOF. Maybe endprogram is missing')
-        return self.tokens[0].type == type
+        return self.peek_type() == type
 
     def parse_program(self):
         self.consume('program')
