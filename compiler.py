@@ -84,6 +84,43 @@ EXTRA_VALIDATORS['int'] = lambda x: -32767 <= int(x) <= 32767
 
 Token = namedtuple('Token', ['type', 'value', 'pos'])
 
+class CompilationError(Exception):
+    def __init__(self, pos, msg, suggestion=None):
+        self.pos = pos
+        self.msg = msg
+        self.suggestion = suggestion
+
+    def __str__(self):
+        const_part = '(%d,%d):\n\t%s' % (self.pos.row, self.pos.col, self.msg)
+        suggestion_part = '\n\t-> %s' % self.suggestion if self.suggestion else ''
+        return const_part + suggestion_part
+
+class LexerError(CompilationError):
+    pass
+
+class InvalidTokenError(LexerError):
+    def get_msg(self, token_type):
+        return {
+            'unshut_comment': 'A comment starts here that never ends.',
+            'ccomment': 'A comment was ended here but it never started.',
+        }.get(token_type, 'Invalid token.')
+
+    def __init__(self, pos, token_type=None):
+        super().__init__(pos,
+            msg=self.get_msg(token_type))
+
+class SyntaxAnalyzerError(CompilationError):
+    def get_suggestion(self, got_token_type):
+        return {
+            'id': 'Maybe a ";" or a "," is missing.'
+        }.get(got_token_type, None)
+
+    def __init__(self, pos, expected_type, got_token):
+        super().__init__(pos, 
+            msg='Expected token of type `%s`, got `%s` (`%s`).' %
+                (expected_type, got_token.type, got_token.value),
+            suggestion=self.get_suggestion(got_token.type))
+
 class Lexer:
     def advance_from_match(self, match):
         right_of_match = match.span()[1]
@@ -100,9 +137,9 @@ class Lexer:
         while len(self.source()) > 0:
             #print('source to lex: "%s"' % self.source())
             for name, regex in INVALID_TOKENS:
-                if regex.search(self.source()):
-                    pos = self.cursor.position()
-                    raise ValueError('%s on (%d, %d)' % (name, pos.row, pos.col))
+                match = regex.search(self.source())
+                if match:
+                    raise InvalidTokenError(pos=self.cursor.position(), token_type=name)
 
             for name, regex in IGNORED_TOKENS:
                 match = regex.search(self.source())
@@ -128,7 +165,7 @@ class Lexer:
                         break
 
                 if not found_token:
-                    raise ValueError('Couldn\'t tokenize: `%s`' % self.source())
+                    raise InvalidTokenError(pos=self.cursor.position())
             #print('source after lex: "%s"' % self.source())
         return tokens
 
@@ -176,15 +213,22 @@ class SyntaxAnal:
     def check_syntax(self):
         self.parse_program()
 
+    def peek_type(self):
+        return self.tokens[0].type
+
     def consume(self, type):
-        if self.tokens[0].type == type:
+        #print('Trying to cunsume %s' % type)
+        if self.peek(type):
             #print('consumed %s ' % type)
             return self.tokens.pop(0)
         else:
-            raise ValueError('Syntax error: Expected %s but found %s' % (type, self.tokens[0].type))
+            raise SyntaxAnalyzerError(pos=self.tokens[0].pos,
+                expected_type=type, got_token=self.tokens[0])
             
     def peek(self, type):
-        return self.tokens[0].type == type
+        if len(self.tokens) == 0:
+            raise Exception('Unexpected EOF. Maybe endprogram is missing.')
+        return self.peek_type() == type
 
     def parse_program(self):
         self.consume('program')
@@ -477,10 +521,17 @@ class SyntaxAnal:
             self.parse_addoper()
 
 import argparse
+import sys
+
 parser = argparse.ArgumentParser()
 parser.add_argument('source_file')
 args = parser.parse_args()
+
 with open(args.source_file, 'r') as source_file:
     source = source_file.read()
-    tokens = Lexer(source).tokenize()
-    SyntaxAnal(tokens).check_syntax()
+    try:
+        tokens = Lexer(source).tokenize()
+        SyntaxAnal(tokens).check_syntax()
+    except CompilationError as e:
+        print('%s:%s\n' % (args.source_file, str(e)))
+        sys.exit(1)
