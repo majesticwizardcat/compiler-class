@@ -1,0 +1,49 @@
+/* This is a program that calculates the fibonacci sequence
+using different methods
+*/
+
+program fibonacci
+    declare x, result enddeclare
+
+    // Using repeat
+    function simpleFib(in x, inout res)
+        declare cur, last, index enddeclare
+        res := 1;
+        cur := 1;
+        last := 0;
+        index := 0;
+
+        repeat
+            if index >= x then
+                exit
+            endif;
+
+            res := last + cur;
+            last := cur;
+            cur := res;
+            index := index + 1;
+        endrepeat
+    endfunction
+
+    // Using recursion
+    function recFib(in x)
+        if x = 1 then
+            return 1
+        endif;
+
+        if x = 2 then
+            return 2
+        endif;
+
+        return recFib(in x - 1) + recFib(in x - 2)
+    endfunction
+
+    procedure findFib()
+        declare x, res enddeclare
+        input x;
+        print simpleFib(in x, inout res);
+        print recFib(in x)
+    endprocedure
+
+    call findFib()
+endprogram
