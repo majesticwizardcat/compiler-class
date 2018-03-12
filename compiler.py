@@ -8,12 +8,12 @@ pp = pprint.PrettyPrinter().pprint
 
 INVALID_TOKENS = [
     ('ccomment', re.compile(r'\A\*\/')), # should normally be consumed via IGNORED_TOKENS's comment, otherwise there was no comment open
-    ('unshut_comment', re.compile(r'\A\/\*[^*/]*\Z')),
+    ('unshut_comment', re.compile(r'\A/\*((?!\*/).)*\Z', re.DOTALL)),
 ]
 
 IGNORED_TOKENS = [
     ('whitespace', re.compile(r'\A\s+')),
-    ('comment', re.compile(r'\A\/\*[^*/]*\*\/')),
+    ('comment', re.compile(r'\A/\*((?!\*/).)*\*/', re.DOTALL)),
     ('inline_comment', re.compile(r'\A//.*')),
 ]
 
