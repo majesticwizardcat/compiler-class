@@ -103,7 +103,7 @@ class InvalidTokenError(LexerError):
         return {
             'unshut_comment': 'A comment starts here that never ends.',
             'ccomment': 'A comment was ended here but it never started.',
-        }.get(token_type, 'Invalid token.')
+        }.get(token_type, 'Invalid token: %s' % token_type)
 
     def __init__(self, pos, token_type=None):
         super().__init__(pos,
@@ -165,7 +165,7 @@ class Lexer:
                         break
 
                 if not found_token:
-                    raise InvalidTokenError(pos=self.cursor.position())
+                    raise InvalidTokenError(pos=self.cursor.position(), token_type=self.source().split()[0])
             #print('source after lex: "%s"' % self.source())
         return tokens
 
