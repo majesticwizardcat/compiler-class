@@ -212,6 +212,8 @@ class SyntaxAnal:
 
     def check_syntax(self):
         self.parse_program()
+        if len(self.tokens) > 0:
+            raise Exception('Unexpected token after endprogram.')
 
     def peek_type(self):
         return self.tokens[0].type
