@@ -206,6 +206,47 @@ class StringCursor:
 
 CursorPosition = namedtuple('CursorPosition', ['row', 'col'])
 
+Quad = namedtuple('quad', ['id', 'op', 'term0', 'term1', 'target'])
+
+class QuadGenerator:
+    def __init__(self):
+        self.quad_id = 0
+        self.temp_id = 0
+        self.quad_list = []
+    
+    def nextquad(self):
+        cur = self.quad_id
+        self.quad_id += 1
+        return cur
+
+    def genquad(self, quad_id, op, term0, term1, target):
+        self.quad_list.append(Quad(id=quad_id, op=op, term0=term0, term1=term1, target=target))
+
+    def newtemp(self):
+        temp = 'T_%d' % self.temp_id
+        self.temp_id += 1
+        return temp
+
+    def emptylist(self):
+        return []
+
+    def makelist(self, x):
+        lst = self.emptylist()
+        lst.append(x)
+        return lst
+
+    def merge(self, lst0, lst1):
+        return lst0 + lst1
+
+    def backpatch(self, lst, target):
+        for l in lst:
+            quad = self.quad_list[l]
+            self.quad_list[l] = Quad(id=quad.id, op=quad.op, term0=quad.term0, term1=quad.term1, target=target)
+
+    def printquads(self):
+        for quad in self.quad_list:
+            print(quad)
+
 class SyntaxAnal:
     def __init__(self, tokens):
         self.tokens = tokens   
