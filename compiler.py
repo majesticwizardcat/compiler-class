@@ -482,7 +482,7 @@ class SyntaxAnal:
         if self.peek('oparen'):
             self.consume('oparen')
             self.parse_expression()
-            sefl.consume('cparen')
+            self.consume('cparen')
         elif self.peek('id'):
             self.consume('id')
             self.parse_idtail()
