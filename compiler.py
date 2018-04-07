@@ -279,8 +279,14 @@ class SyntaxAnal:
 
     def parse_program(self):
         self.consume('program')
-        self.consume('id')
+        name = self.consume('id').value
+        qid = self.quad_gen.nextquad()
+        self.quad_gen.genquad(qid, 'begin_program_block', name, '_', '_')
         self.parse_block()
+        qid = self.quad_gen.nextquad()
+        self.quad_gen.genquad(qid, 'halt', '_', '_', '_')
+        qid = self.quad_gen.nextquad()
+        self.quad_gen.genquad(qid, 'end_program_block', name, '_', '_')
         self.consume('endprogram')
     
     def parse_block(self):
@@ -309,13 +315,21 @@ class SyntaxAnal:
     def parse_procorfunc(self):
         if self.peek('procedure'):
             self.consume('procedure')
-            self.consume('id')
+            name = self.consume('id').value
+            qid = self.quad_gen.nextquad()
+            self.quad_gen.genquad(qid, 'start_procedure_block', name, '_', '_')
             self.parse_procorfuncbody()
+            qid = self.quad_gen.nextquad()
+            self.quad_gen.genquad(qid, 'end_procedure_block', name, '_', '_')
             self.consume('endprocedure')
         else:
             self.consume('function')
-            self.consume('id')
+            name = self.consume('id').value
+            qid = self.quad_gen.nextquad()
+            self.quad_gen.genquad(qid, 'start_function_block', name, '_', '_')
             self.parse_procorfuncbody()
+            qid = self.quad_gen.nextquad()
+            self.quad_gen.genquad(qid, 'end_function_block', name, '_', '_')
             self.consume('endfunction')
 
     def parse_procorfuncbody(self):
