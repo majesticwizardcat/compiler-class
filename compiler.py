@@ -206,9 +206,54 @@ class StringCursor:
 
 CursorPosition = namedtuple('CursorPosition', ['row', 'col'])
 
+Quad = namedtuple('quad', ['id', 'op', 'term0', 'term1', 'target'])
+
+class QuadGenerator:
+    def __init__(self):
+        self.quad_id = 0
+        self.temp_id = 0
+        self.quad_list = []
+    
+    def nextquad(self):
+        cur = self.quad_id
+        self.quad_id += 1
+        return cur
+
+    def genquad(self, quad_id, op, term0, term1, target):
+        self.quad_list.append(Quad(id=quad_id, op=op, term0=term0, term1=term1, target=target))
+
+    def newtemp(self):
+        temp = 'T_%d' % self.temp_id
+        self.temp_id += 1
+        return temp
+
+    def emptylist(self):
+        return []
+
+    def makelist(self, x):
+        lst = self.emptylist()
+        lst.append(x)
+        return lst
+
+    def merge(self, lst0, lst1):
+        return lst0 + lst1
+
+    def backpatch(self, lst, target):
+        for l in lst:
+            quad = self.quad_list[l]
+            self.quad_list[l] = Quad(id=quad.id, op=quad.op, term0=quad.term0, term1=quad.term1, target=target)
+
+    def printquads(self):
+        for quad in self.quad_list:
+            print(quad)
+
 class SyntaxAnal:
     def __init__(self, tokens):
         self.tokens = tokens   
+        self.quad_gen = QuadGenerator()
+
+    def print_quads(self):
+        self.quad_gen.printquads()
 
     def check_syntax(self):
         self.parse_program()
@@ -330,9 +375,11 @@ class SyntaxAnal:
             self.parse_printstat()
        
     def parse_assignmentstat(self):
-        self.consume('id')
-        self.consume('assign')
-        self.parse_expression();
+        target = self.consume('id').value
+        op = self.consume('assign').value
+        value = self.parse_expression()
+        qid = self.quad_gen.nextquad()
+        self.quad_gen.genquad(qid, op, value, '_', target)
 
     def parse_ifstat(self):
         self.consume('if')
@@ -464,30 +511,46 @@ class SyntaxAnal:
             self.parse_expression()
 
     def parse_expression(self):
-        self.parse_optionalsign()
-        self.parse_term()
+        sign = self.parse_optionalsign()
+        term = sign + self.parse_term()
 
         while self.peek('plus') or self.peek('minus'):
-            self.parse_addoper()
-            self.parse_term()
+            op = self.parse_addoper()
+            secterm = self.parse_term()
+            target = self.quad_gen.newtemp()
+            qid = self.quad_gen.nextquad()
+            self.quad_gen.genquad(qid, op, term, secterm, target)
+            term = target
+
+        return term
 
     def parse_term(self):
-        self.parse_factor()
+        factor = self.parse_factor()
 
         while self.peek('mul') or self.peek('div'):
-            self.parse_muloper()
-            self.parse_factor()
+            op = self.parse_muloper()
+            secfactor = self.parse_factor()
+            target = self.quad_gen.newtemp()
+            qid = self.quad_gen.nextquad()
+            self.quad_gen.genquad(qid, op, factor, secfactor, target)
+            factor = target
+
+        return factor
 
     def parse_factor(self):
         if self.peek('oparen'):
             self.consume('oparen')
-            self.parse_expression()
+            exp = self.parse_expression()
             self.consume('cparen')
+            return exp
+
         elif self.peek('id'):
-            self.consume('id')
+            vid = self.consume('id').value
             self.parse_idtail()
+            return vid
+
         else:
-           self.consume('int')
+           return self.consume('int').value
 
     def parse_idtail(self):
         if self.peek('oparen'):
@@ -509,19 +572,21 @@ class SyntaxAnal:
 
     def parse_addoper(self):
         if self.peek('plus'):
-            self.consume('plus')
+            return self.consume('plus').value
         else:
-            self.consume('minus')
+            return self.consume('minus').value
 
     def parse_muloper(self):
         if self.peek('mul'):
-            self.consume('mul')
+            return self.consume('mul').value
         else:
-            self.consume('div')
+            return self.consume('div').value
 
     def parse_optionalsign(self):
         if self.peek('plus') or self.peek('minus'):
-            self.parse_addoper()
+            return self.parse_addoper()
+
+        return ''
 
 import argparse
 import sys
@@ -534,7 +599,9 @@ with open(args.source_file, 'r') as source_file:
     source = source_file.read()
     try:
         tokens = Lexer(source).tokenize()
-        SyntaxAnal(tokens).check_syntax()
+        syntax_anal = SyntaxAnal(tokens)
+        syntax_anal.check_syntax()
+        syntax_anal.print_quads()
     except CompilationError as e:
         print('%s:%s\n' % (args.source_file, str(e)))
         sys.exit(1)
