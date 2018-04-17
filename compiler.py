@@ -455,8 +455,10 @@ class SyntaxAnal:
 
     def parse_callstat(self):
         self.consume('call')
-        self.consume('id')
+        name = self.consume('id').value
         self.parse_actualpars()
+        qid = self.quad_gen.nextquad()
+        self.quad_gen.genquad(qid, 'call', name, '_', '_')
 
     def parse_returnstat(self):
         self.consume('return')
@@ -486,10 +488,14 @@ class SyntaxAnal:
     def parse_actualparitem(self):
         if self.peek('in'):
             self.consume('in')
-            self.parse_expression()
+            par = self.parse_expression()
+            qid = self.quad_gen.nextquad()
+            self.quad_gen.genquad(qid, 'par', par, 'cv', '_')
         else:
             self.consume('inout')
-            self.consume('id')
+            par = self.consume('id').value
+            qid = self.quad_gen.nextquad()
+            self.quad_gen.genquad(qid, 'par', par, 'ref', '_')
 
     def parse_condition(self):
         self.parse_boolterm()
@@ -560,8 +566,13 @@ class SyntaxAnal:
 
         elif self.peek('id'):
             vid = self.consume('id').value
-            self.parse_idtail()
-            return vid
+            ret = self.parse_idtail()
+            if ret != '':
+                qid = self.quad_gen.nextquad()
+                self.quad_gen.genquad(qid, 'call', vid, '_', '_')
+                return ret
+            else:
+                return vid
 
         else:
            return self.consume('int').value
@@ -569,6 +580,12 @@ class SyntaxAnal:
     def parse_idtail(self):
         if self.peek('oparen'):
             self.parse_actualpars()
+            retval = self.quad_gen.newtemp()
+            qid = self.quad_gen.nextquad()
+            self.quad_gen.genquad(qid, 'par', retval, 'ret', '_')
+            return retval
+
+        return ''
 
     def parse_relationaloper(self):
         if self.peek('eq'):
