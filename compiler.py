@@ -644,20 +644,34 @@ class CBackend:
         return ['\tL_%d: %s %s' % (i, self.quad_to_c(quad), self.quad_to_comment(quad))
             for i, quad in enumerate(self.quadlist)]
 
-    def quad_to_c(self, quad):
-        handler = None
-        op = quad.op
+    def quad_to_c(self, q):
+        ret = None
+        op = q.op
         if op in ['+', '*']: # TODO: more ops?
-            handler = lambda q: '%s = %s %s %s;' % (q.target, q.term0, op, q.term1)
+            ret = '%s = %s %s %s;' % (q.target, q.term0, op, q.term1)
         elif op in ['begin_program_block', 'end_program_block', 'halt']:
-            handler = lambda q: ''
+            ret = ''
         elif op == ':=':
-            handler = lambda q: '%s = %s;' % (q.target, q.term0)
+            ret = '%s = %s;' % (q.target, q.term0)
+        elif op in ['>=', '<=', '<', '>', '=', '<>']:
+            c_op = op
+            if op == '=':
+                c_op = '=='
+            elif op == '<>':
+                c_op = '!='
+            ret = 'if (%s %s %s) goto L_%d;' % (q.term0, c_op, q.term1,
+                    q.target)
+        elif op == 'jump':
+            ret = 'goto L_%d;' % q.target
+        elif op == 'out':
+            ret = 'printf("%%d", %s);' % q.term0
+        elif op == 'inp':
+            ret = 'scanf("%%d", &%s);' % q.term0
         else:
             print('Unknown quad type "%s", can\'t translate to C.' % op)
             exit(1)
 
-        return handler(quad)
+        return ret
 
     def quad_to_comment(self, quad):
         return '// (%s, %s, %s, %s)' % (quad.op, quad.term0, quad.term1, quad.target)
