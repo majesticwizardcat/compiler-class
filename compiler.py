@@ -470,11 +470,15 @@ class SyntaxAnal:
 
     def parse_printstat(self):
         self.consume('print')
-        self.parse_expression()
+        expr = self.parse_expression()
+        qid = self.quad_gen.nextquad()
+        self.quad_gen.genquad(qid, 'out', expr, '_', '_')
 
     def parse_inputstat(self):
         self.consume('input')
-        self.consume('id')
+        name = self.consume('id').value
+        qid = self.quad_gen.nextquad()
+        self.quad_gen.genquad(qid, 'inp', name, '_', '_')
 
     def parse_actualpars(self):
         self.consume('oparen')
