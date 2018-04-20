@@ -651,7 +651,7 @@ class CBackend:
         if op in ['+', '-', '*', '/']:
             ret = '%s = %s %s %s;' % (q.target, q.term0, op, q.term1)
         elif op in ['begin_program_block', 'end_program_block', 'halt']:
-            ret = ''
+            ret = '{}'
         elif op == ':=':
             ret = '%s = %s;' % (q.target, q.term0)
         elif op in ['>=', '<=', '<', '>', '=', '<>']:
