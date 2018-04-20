@@ -627,6 +627,65 @@ class SyntaxAnal:
 
         return ''
 
+class CBackend:
+    def __init__(self, quadgen):
+        self.quadgen = quadgen
+        self.quadlist = quadgen.quad_list
+
+    def convert(self):
+        return '\n'.join(self.prelude() + self.identifiers() + self.code() + self.postlude())
+
+    def prelude(self):
+        return [
+            '#include <stdio.h>',
+            'int main() {'
+        ]
+
+    def postlude(self):
+        return ['}']
+
+    def code(self):
+        return ['\tL_%d: %s %s' % (i, self.quad_to_c(quad), self.quad_to_comment(quad))
+            for i, quad in enumerate(self.quadlist)]
+
+    @staticmethod
+    def quad_to_c(q):
+        ret = None
+        op = q.op
+        if op in ['+', '-', '*', '/']:
+            ret = '%s = %s %s %s;' % (q.target, q.term0, op, q.term1)
+        elif op in ['begin_program_block', 'end_program_block', 'halt']:
+            ret = ''
+        elif op == ':=':
+            ret = '%s = %s;' % (q.target, q.term0)
+        elif op in ['>=', '<=', '<', '>', '=', '<>']:
+            c_op = op
+            if op == '=':
+                c_op = '=='
+            elif op == '<>':
+                c_op = '!='
+            ret = 'if (%s %s %s) goto L_%d;' % (q.term0, c_op, q.term1,
+                    q.target)
+        elif op == 'jump':
+            ret = 'goto L_%d;' % q.target
+        elif op == 'out':
+            ret = 'printf("%%d", %s);' % q.term0
+        elif op == 'inp':
+            ret = 'scanf("%%d", &%s);' % q.term0
+        else:
+            print('Unknown quad type "%s", can\'t translate to C.' % op)
+            exit(1)
+
+        return ret
+
+    @staticmethod
+    def quad_to_comment(quad):
+        return '// (%s, %s, %s, %s)' % (quad.op, quad.term0, quad.term1, quad.target)
+
+    def identifiers(self):
+        targets = set(quad.target for quad in self.quadlist if quad.target != '_')
+        return ['\tint %s;' % ', '.join(targets)]
+
 import argparse
 import sys
 
@@ -641,6 +700,9 @@ with open(args.source_file, 'r') as source_file:
         syntax_anal = SyntaxAnal(tokens)
         syntax_anal.check_syntax()
         syntax_anal.print_quads()
+
+        cbackend = CBackend(syntax_anal.quad_gen)
+        print(cbackend.convert())
     except CompilationError as e:
         print('%s:%s\n' % (args.source_file, str(e)))
         sys.exit(1)
