@@ -644,7 +644,8 @@ class CBackend:
         return ['\tL_%d: %s %s' % (i, self.quad_to_c(quad), self.quad_to_comment(quad))
             for i, quad in enumerate(self.quadlist)]
 
-    def quad_to_c(self, q):
+    @staticmethod
+    def quad_to_c(q):
         ret = None
         op = q.op
         if op in ['+', '*']: # TODO: more ops?
@@ -673,7 +674,8 @@ class CBackend:
 
         return ret
 
-    def quad_to_comment(self, quad):
+    @staticmethod
+    def quad_to_comment(quad):
         return '// (%s, %s, %s, %s)' % (quad.op, quad.term0, quad.term1, quad.target)
 
     def identifiers(self):
