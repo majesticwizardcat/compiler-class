@@ -282,11 +282,14 @@ class SyntaxAnal:
         self.consume('program')
         name = self.consume('id').value
         qid = self.quad_gen.nextquad()
+        # TODO: rename to begin_block in accordance to slides?
         self.quad_gen.genquad(qid, 'begin_program_block', name, '_', '_')
         self.parse_block()
         qid = self.quad_gen.nextquad()
+        # TODO: halt only on the main program (how to decide which one is main?)
         self.quad_gen.genquad(qid, 'halt', '_', '_', '_')
         qid = self.quad_gen.nextquad()
+        # TODO: rename ditto?
         self.quad_gen.genquad(qid, 'end_program_block', name, '_', '_')
         self.consume('endprogram')
     
