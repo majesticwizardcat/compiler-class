@@ -648,7 +648,7 @@ class CBackend:
     def quad_to_c(q):
         ret = None
         op = q.op
-        if op in ['+', '*']: # TODO: more ops?
+        if op in ['+', '-', '*', '/']:
             ret = '%s = %s %s %s;' % (q.target, q.term0, op, q.term1)
         elif op in ['begin_program_block', 'end_program_block', 'halt']:
             ret = ''
