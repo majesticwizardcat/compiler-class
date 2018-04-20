@@ -629,7 +629,7 @@ class CBackend:
         self.quadlist = quadgen.quad_list
 
     def convert(self):
-        return '\n'.join(self.prelude() + self.code() + self.postlude())
+        return '\n'.join(self.prelude() + self.identifiers() + self.code() + self.postlude())
 
     def prelude(self):
         return [
@@ -663,7 +663,8 @@ class CBackend:
         return '// (%s, %s, %s, %s)' % (quad.op, quad.term0, quad.term1, quad.target)
 
     def identifiers(self):
-        pass
+        targets = set(quad.target for quad in self.quadlist if quad.target != '_')
+        return ['\tint %s;' % ', '.join(targets)]
 
 import argparse
 import sys
