@@ -1,0 +1,19 @@
+:=				x		_	z		->		z = x;
+jump			_		_	z		->		goto z;
+$relop			x		y	z		->		if (x $relop y) goto z;
+
+begin_block		name	_	_		->		...
+end_block		name	_	_		->		...
+halt			_		_	_		->		exit()
+
++				x		y	z		->		z = x + y;
+-				x		y	z		->		z = x - y;
+*				x		y	z		->		z = x * y;
+/				x		y	z		->		z = x / y;
+
+par				x		CV	_		->		pass by value
+par				x		REF	_		->		pass by reference
+par				x		RET	_		->		return parameter (x = foo()), comes before call
+
+call			name	_	_		->		name();
+ret				x		_	_		->		return x;
