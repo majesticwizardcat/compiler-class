@@ -247,6 +247,11 @@ class QuadGenerator:
         for quad in self.quad_list:
             print(quad)
 
+class TrueFalse:
+    def __init__(self, true=[], false=[]):
+        self.true = true
+        self.false = false
+
 class SyntaxAnal:
     def __init__(self, tokens):
         self.tokens = tokens   
@@ -396,11 +401,17 @@ class SyntaxAnal:
 
     def parse_ifstat(self):
         self.consume('if')
-        self.parse_condition()
+        cond = self.parse_condition()
         self.consume('then')
+        self.quad_gen.backpatch(cond.true, self.quad_gen.nextquad())
         self.parse_statements()
+        after_if_jump = self.quad_gen.nextquad()
+        self.quad_gen.genquad('jump', '_', '_', '_')
+
+        self.quad_gen.backpatch(cond.false, self.quad_gen.nextquad())
         self.parse_elsepart()
         self.consume('endif')
+        self.quad_gen.backpatch([after_if_jump], self.quad_gen.nextquad())
 
     def parse_elsepart(self):
         if self.peek('else'):
@@ -496,37 +507,71 @@ class SyntaxAnal:
             self.quad_gen.genquad('par', par, 'ref', '_')
 
     def parse_condition(self):
-        self.parse_boolterm()
+        b = TrueFalse()
+        q1 = self.parse_boolterm()
+        b.true = q1.true
+        b.false = q1.false
         
         while self.peek('or'):
             self.consume('or')
-            self.parse_boolterm()
+            self.quad_gen.backpatch(b.false, self.quad_gen.nextquad())
+
+            q2 = self.parse_boolterm()
+            b.true += q2.true
+            b.false = q2.false
+
+        return b
 
     def parse_boolterm(self):
-        self.parse_boolfactor()
+        q = TrueFalse()
+        r1 = self.parse_boolfactor()
+
+        q.true = r1.true
+        q.false = r1.false
 
         while self.peek('and'):
             self.consume('and')
-            self.parse_boolfactor()
+            self.quad_gen.backpatch(q.true, self.quad_gen.nextquad())
+
+            r2 = self.parse_boolfactor()
+            q.false += r2.false
+            q.true = r2.true
+
+        return q
 
     def parse_boolfactor(self):
         if self.peek('not'):
             self.consume('not')
             self.consume('obracket')
-            self.parse_condition()
+            cond = self.parse_condition()
             self.consume('cbracket')
+            return TrueFalse(true=cond.false, false=cond.true)
         elif self.peek('obracket'):
             self.consume('obracket')
-            self.parse_condition()
+            cond = self.parse_condition()
             self.consume('cbracket')
+            return cond
         elif self.peek('true'):
             self.consume('true')
+            qid = self.quad_gen.nextquad()
+            self.quad_gen.genquad('jump', '_', '_', '_')
+            return TrueFalse(true=[qid])
         elif self.peek('false'):
             self.consume('false')
+            qid = self.quad_gen.nextquad()
+            self.quad_gen.genquad('jump', '_', '_', '_')
+            return TrueFalse(false=[qid])
         else:
-            self.parse_expression()
-            self.parse_relationaloper()
-            self.parse_expression()
+            exp1 = self.parse_expression()
+            relop = self.parse_relationaloper()
+            exp2 = self.parse_expression()
+
+            relop_qid = self.quad_gen.nextquad()
+            self.quad_gen.genquad(relop, exp1, exp2, '_')
+
+            nop_qid = self.quad_gen.nextquad()
+            self.quad_gen.genquad('jump', '_', '_', '_')
+            return TrueFalse(true=[relop_qid], false=[nop_qid])
 
     def parse_expression(self):
         sign = self.parse_optionalsign()
@@ -583,17 +628,17 @@ class SyntaxAnal:
 
     def parse_relationaloper(self):
         if self.peek('eq'):
-            self.consume('eq')
+            return self.consume('eq').value
         elif self.peek('le'):
-            self.consume('le')
+            return self.consume('le').value
         elif self.peek('ge'):
-            self.consume('ge')
+            return self.consume('ge').value
         elif self.peek('lt'):
-            self.consume('lt')
+            return self.consume('lt').value
         elif self.peek('gt'):
-            self.consume('gt')
+            return self.consume('gt').value
         else: 
-            self.consume('neq')
+            return self.consume('neq').value
 
     def parse_addoper(self):
         if self.peek('plus'):
