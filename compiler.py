@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
 #Karantias Konstantinos 2454 cse32454 Goulioumis Ioannis 2232 cse32232
-from collections import namedtuple, defaultdict
+import argparse
+import os
 import re
+import subprocess
+import sys
+from collections import defaultdict, namedtuple
 
 INVALID_TOKENS = [
-    ('ccomment', re.compile(r'\A\*\/')), # should normally be consumed via IGNORED_TOKENS's comment, otherwise there was no comment open
+    (
+        'ccomment', re.compile(r'\A\*\/')
+    ),  # should normally be consumed via IGNORED_TOKENS's comment, otherwise there was no comment open
     ('unshut_comment', re.compile(r'\A/\*((?!\*/).)*\Z', re.DOTALL)),
 ]
 
@@ -50,24 +56,20 @@ VALID_TOKENS = [
     ('false', re.compile(r'\A\bfalse\b')),
     ('input', re.compile(r'\A\binput\b')),
     ('print', re.compile(r'\A\bprint\b')),
-
     ('assign', re.compile(r'\A:=')),
     ('semicolon', re.compile(r'\A;')),
     ('colon', re.compile(r'\A:')),
     ('comma', re.compile(r'\A,')),
-
     ('id', re.compile(r'\A([a-zA-Z][a-zA-Z0-9]{0,29})[a-zA-Z0-9]*')),
     ('int', re.compile(r'\A\b\d+\b')),
     ('plus', re.compile(r'\A\+')),
     ('minus', re.compile(r'\A-')),
     ('div', re.compile(r'\A/')),
     ('mul', re.compile(r'\A\*')),
-
     ('oparen', re.compile(r'\A\(')),
     ('cparen', re.compile(r'\A\)')),
     ('obracket', re.compile(r'\A\[')),
     ('cbracket', re.compile(r'\A\]')),
-
     ('neq', re.compile(r'\A<>')),
     ('ge', re.compile(r'\A>=')),
     ('le', re.compile(r'\A<=')),
@@ -81,6 +83,7 @@ EXTRA_VALIDATORS['int'] = lambda x: -32767 <= int(x) <= 32767
 
 Token = namedtuple('Token', ['type', 'value', 'pos'])
 
+
 class CompilationError(Exception):
     def __init__(self, pos, msg, suggestion=None):
         self.pos = pos
@@ -92,8 +95,10 @@ class CompilationError(Exception):
         suggestion_part = '\n\t-> %s' % self.suggestion if self.suggestion else ''
         return const_part + suggestion_part
 
+
 class LexerError(CompilationError):
     pass
+
 
 class InvalidTokenError(LexerError):
     def get_msg(self, token_type):
@@ -103,8 +108,8 @@ class InvalidTokenError(LexerError):
         }.get(token_type, 'Invalid token: %s' % token_type)
 
     def __init__(self, pos, token_type=None):
-        super().__init__(pos,
-            msg=self.get_msg(token_type))
+        super().__init__(pos, msg=self.get_msg(token_type))
+
 
 class SyntaxAnalyzerError(CompilationError):
     def get_suggestion(self, got_token_type):
@@ -113,10 +118,12 @@ class SyntaxAnalyzerError(CompilationError):
         }.get(got_token_type, None)
 
     def __init__(self, pos, expected_type, got_token):
-        super().__init__(pos, 
+        super().__init__(
+            pos,
             msg='Expected token of type `%s`, got `%s` (`%s`).' %
-                (expected_type, got_token.type, got_token.value),
+            (expected_type, got_token.type, got_token.value),
             suggestion=self.get_suggestion(got_token.type))
+
 
 class Lexer:
     def advance_from_match(self, match):
@@ -136,7 +143,8 @@ class Lexer:
             for name, regex in INVALID_TOKENS:
                 match = regex.search(self.source())
                 if match:
-                    raise InvalidTokenError(pos=self.cursor.position(), token_type=name)
+                    raise InvalidTokenError(
+                        pos=self.cursor.position(), token_type=name)
 
             for name, regex in IGNORED_TOKENS:
                 match = regex.search(self.source())
@@ -155,21 +163,26 @@ class Lexer:
                         #print('Matched token: ', name)
                         #print('Match: ', match.span())
 
-                        value = match.group() if len(match.groups()) == 0 else match.group(1)
-                        token = Token(type=name, value=value, pos=self.cursor.position())
+                        value = match.group() if len(
+                            match.groups()) == 0 else match.group(1)
+                        token = Token(
+                            type=name, value=value, pos=self.cursor.position())
                         tokens.append(token)
                         self.advance_from_match(match)
                         break
 
                 if not found_token:
-                    raise InvalidTokenError(pos=self.cursor.position(), token_type=self.source().split()[0])
+                    raise InvalidTokenError(
+                        pos=self.cursor.position(),
+                        token_type=self.source().split()[0])
             #print('source after lex: "%s"' % self.source())
         return tokens
+
 
 class StringCursor:
     def __init__(self, string):
         self.string = string
-        self.char_pos = 0 # in chars
+        self.char_pos = 0  # in chars
         self.pos = CursorPosition(1, 1)
 
     def advance(self, nchars):
@@ -177,9 +190,12 @@ class StringCursor:
         new_char_pos = self.char_pos + nchars
 
         if new_char_pos > len(self.string):
-            raise ValueError('Tried to move past the end of the string `%s`.' % self.rest())
+            raise ValueError(
+                'Tried to move past the end of the string `%s`.' % self.rest())
 
-        linebreaks = list(newline.finditer(self.string, pos=self.char_pos, endpos=new_char_pos))
+        linebreaks = list(
+            newline.finditer(
+                self.string, pos=self.char_pos, endpos=new_char_pos))
         #print('found linebreaks: ', linebreaks)
 
         inbetween_rows = len(linebreaks)
@@ -201,21 +217,29 @@ class StringCursor:
     def position(self):
         return self.pos
 
+
 CursorPosition = namedtuple('CursorPosition', ['row', 'col'])
 
 Quad = namedtuple('quad', ['id', 'op', 'term0', 'term1', 'target'])
+
 
 class QuadGenerator:
     def __init__(self):
         self.quad_id = 0
         self.temp_id = 0
         self.quad_list = []
-    
+
     def nextquad(self):
         return self.quad_id
 
     def genquad(self, op, term0, term1, target):
-        self.quad_list.append(Quad(id=self.quad_id, op=op, term0=term0, term1=term1, target=target))
+        self.quad_list.append(
+            Quad(
+                id=self.quad_id,
+                op=op,
+                term0=term0,
+                term1=term1,
+                target=target))
         self.quad_id += 1
 
     def newtemp(self):
@@ -226,20 +250,28 @@ class QuadGenerator:
     def backpatch(self, lst, target):
         for l in lst:
             quad = self.quad_list[l]
-            self.quad_list[l] = Quad(id=quad.id, op=quad.op, term0=quad.term0, term1=quad.term1, target=target)
+            self.quad_list[l] = Quad(
+                id=quad.id,
+                op=quad.op,
+                term0=quad.term0,
+                term1=quad.term1,
+                target=target)
 
     def __str__(self):
-        return '\n'.join('%s: (%s, %s, %s, %s)' % (quad.id, quad.op, quad.term0,
-            quad.term1, quad.target) for quad in self.quad_list)
+        return '\n'.join(
+            '%s: (%s, %s, %s, %s)' % (quad.id, quad.op, quad.term0, quad.term1,
+                                      quad.target) for quad in self.quad_list)
+
 
 class TrueFalse:
     def __init__(self, true=[], false=[]):
         self.true = true
         self.false = false
 
+
 class SyntaxAnal:
     def __init__(self, tokens):
-        self.tokens = tokens   
+        self.tokens = tokens
         self.quad_gen = QuadGenerator()
         self.exits = []
 
@@ -257,9 +289,11 @@ class SyntaxAnal:
             #print('consumed %s ' % type)
             return self.tokens.pop(0)
         else:
-            raise SyntaxAnalyzerError(pos=self.tokens[0].pos,
-                expected_type=type, got_token=self.tokens[0])
-            
+            raise SyntaxAnalyzerError(
+                pos=self.tokens[0].pos,
+                expected_type=type,
+                got_token=self.tokens[0])
+
     def peek(self, type):
         if len(self.tokens) == 0:
             raise Exception('Unexpected EOF. Maybe endprogram is missing.')
@@ -276,7 +310,7 @@ class SyntaxAnal:
         # TODO: rename ditto?
         self.quad_gen.genquad('end_program_block', name, '_', '_')
         self.consume('endprogram')
-    
+
     def parse_block(self):
         self.parse_declarations()
         self.parse_subprograms()
@@ -297,7 +331,7 @@ class SyntaxAnal:
                 self.consume('comma')
                 vid = self.consume('id').value
                 self.quad_gen.genquad('int', vid, '_', '_')
-    
+
     def parse_subprograms(self):
         while self.peek('procedure') or self.peek('function'):
             self.parse_procorfunc()
@@ -321,7 +355,7 @@ class SyntaxAnal:
     def parse_procorfuncbody(self):
         self.parse_formalpars()
         self.parse_block()
-        
+
     def parse_formalpars(self):
         self.consume('oparen')
         self.parse_formalparlist()
@@ -373,7 +407,7 @@ class SyntaxAnal:
             self.parse_inputstat()
         elif self.peek('print'):
             self.parse_printstat()
-       
+
     def parse_assignmentstat(self):
         target = self.consume('id').value
         op = self.consume('assign').value
@@ -438,7 +472,7 @@ class SyntaxAnal:
         jumps_when_done = self.parse_case(expr)
         while self.peek('case'):
             jumps_when_done += self.parse_case(expr)
-        
+
         self.consume('endswitch')
         self.quad_gen.backpatch(jumps_when_done, self.quad_gen.nextquad())
 
@@ -533,7 +567,7 @@ class SyntaxAnal:
         q1 = self.parse_boolterm()
         b.true = q1.true
         b.false = q1.false
-        
+
         while self.peek('or'):
             self.consume('or')
             self.quad_gen.backpatch(b.false, self.quad_gen.nextquad())
@@ -637,7 +671,7 @@ class SyntaxAnal:
                 return vid
 
         else:
-           return self.consume('int').value
+            return self.consume('int').value
 
     def parse_idtail(self):
         if self.peek('oparen'):
@@ -659,7 +693,7 @@ class SyntaxAnal:
             return self.consume('lt').value
         elif self.peek('gt'):
             return self.consume('gt').value
-        else: 
+        else:
             return self.consume('neq').value
 
     def parse_addoper(self):
@@ -680,25 +714,27 @@ class SyntaxAnal:
 
         return ''
 
+
 class CBackend:
     def __init__(self, quadgen):
         self.quadlist = quadgen.quad_list
 
     def convert(self):
-        return '\n'.join(self.prelude() + self.identifiers() + self.code() + self.postlude())
+        return '\n'.join(self.prelude() + self.identifiers() + self.code() +
+                         self.postlude())
 
     def prelude(self):
-        return [
-            '#include <stdio.h>',
-            'int main() {'
-        ]
+        return ['#include <stdio.h>', 'int main() {']
 
     def postlude(self):
         return ['}']
 
     def code(self):
-        return ['\tL_%d: %s %s' % (quad.id, self.quad_to_c(quad), self.quad_to_comment(quad))
-            for quad in self.quadlist]
+        return [
+            '\tL_%d: %s %s' % (quad.id, self.quad_to_c(quad),
+                               self.quad_to_comment(quad))
+            for quad in self.quadlist
+        ]
 
     @staticmethod
     def quad_to_c(q):
@@ -717,7 +753,7 @@ class CBackend:
             elif op == '<>':
                 c_op = '!='
             ret = 'if (%s %s %s) goto L_%s;' % (q.term0, c_op, q.term1,
-                    q.target)
+                                                q.target)
         elif op == 'jump':
             ret = 'goto L_%s;' % q.target
         elif op == 'out':
@@ -732,17 +768,17 @@ class CBackend:
 
     @staticmethod
     def quad_to_comment(quad):
-        return '// (%s, %s, %s, %s)' % (quad.op, quad.term0, quad.term1, quad.target)
+        return '// (%s, %s, %s, %s)' % (quad.op, quad.term0, quad.term1,
+                                        quad.target)
 
     def identifiers(self):
-        temps = set(quad.target for quad in self.quadlist if str(quad.target).startswith('T_'))
-        declared_variables = set(quad.term0 for quad in self.quadlist if quad.op == 'int')
+        temps = set(
+            quad.target for quad in self.quadlist
+            if str(quad.target).startswith('T_'))
+        declared_variables = set(
+            quad.term0 for quad in self.quadlist if quad.op == 'int')
         return ['\tint %s;' % ', '.join(temps | declared_variables)]
 
-import argparse
-import sys
-import os
-import subprocess
 
 parser = argparse.ArgumentParser()
 parser.add_argument('source_file')
@@ -755,19 +791,19 @@ c_filename = '%s.c' % sourcename
 
 with open(args.source_file, 'r') as source_file:
     source = source_file.read()
-    try:
-        tokens = Lexer(source).tokenize()
-        syntax_anal = SyntaxAnal(tokens)
-        syntax_anal.check_syntax()
-        cbackend = CBackend(syntax_anal.quad_gen)
-        print('Putting intermediate code in [%s]...' % intermediate_filename)
-        with open(intermediate_filename, 'w') as intermediate_file:
-            intermediate_file.write(str(syntax_anal.quad_gen))
-        print('Putting C code in [%s]...' % intermediate_filename)
-        with open(c_filename, 'w') as c_file:
-            c_file.write(cbackend.convert())
-        print('Compiling C code [%s] to [%s]...' % (c_filename, sourcename))
-        subprocess.call(['cc', '-o', sourcename, c_filename])
-    except CompilationError as e:
-        print('%s:%s\n' % (args.source_file, str(e)))
-        sys.exit(1)
+try:
+    tokens = Lexer(source).tokenize()
+    syntax_anal = SyntaxAnal(tokens)
+    syntax_anal.check_syntax()
+    cbackend = CBackend(syntax_anal.quad_gen)
+    print('Putting intermediate code in [%s]...' % intermediate_filename)
+    with open(intermediate_filename, 'w') as intermediate_file:
+        intermediate_file.write(str(syntax_anal.quad_gen))
+    print('Putting C code in [%s]...' % intermediate_filename)
+    with open(c_filename, 'w') as c_file:
+        c_file.write(cbackend.convert())
+    print('Compiling C code [%s] to [%s]...' % (c_filename, sourcename))
+    subprocess.call(['cc', '-o', sourcename, c_filename])
+except CompilationError as e:
+    print('%s:%s\n' % (args.source_file, str(e)))
+    sys.exit(1)
