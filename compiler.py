@@ -464,18 +464,31 @@ class SyntaxAnal:
 
     def parse_forcasestat(self):
         self.consume('forcase')
-        self.consume('when')
-        self.parse_condition()
-        self.consume('colon')
-        self.parse_statements()
+        in_forcase = self.quad_gen.nextquad()
+        was_any_true_flag = self.quad_gen.newtemp()
+        self.quad_gen.genquad(':=', '0', '_', was_any_true_flag)
+
+        self.parse_when(was_any_true_flag)
 
         while self.peek('when'):
-            self.consume('when')
-            self.parse_condition()
-            self.consume('colon')
-            self.parse_statements()
+            self.parse_when(was_any_true_flag)
 
+        self.quad_gen.genquad('=', '1', was_any_true_flag, in_forcase)
         self.consume('endforcase')
+
+    def parse_when(self, was_any_true_flag):
+        self.consume('when')
+        cond = self.parse_condition()
+
+        self.consume('colon')
+
+        when_ok = self.quad_gen.nextquad()
+        self.quad_gen.backpatch(cond.true, when_ok)
+        self.quad_gen.genquad(':=', '1', '_', was_any_true_flag)
+        self.parse_statements()
+
+        next_when = self.quad_gen.nextquad()
+        self.quad_gen.backpatch(cond.false, next_when)
 
     def parse_callstat(self):
         self.consume('call')
