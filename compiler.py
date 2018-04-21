@@ -321,7 +321,7 @@ class SyntaxAnal:
             self.consume('procedure')
             name = self.consume('id').value
             qid = self.quad_gen.nextquad()
-            self.quad_gen.genquad(qid, 'start_procedure_block', name, '_', '_')
+            self.quad_gen.genquad(qid, 'begin_procedure_block', name, '_', '_')
             self.parse_procorfuncbody()
             qid = self.quad_gen.nextquad()
             self.quad_gen.genquad(qid, 'end_procedure_block', name, '_', '_')
@@ -330,7 +330,7 @@ class SyntaxAnal:
             self.consume('function')
             name = self.consume('id').value
             qid = self.quad_gen.nextquad()
-            self.quad_gen.genquad(qid, 'start_function_block', name, '_', '_')
+            self.quad_gen.genquad(qid, 'begin_function_block', name, '_', '_')
             self.parse_procorfuncbody()
             qid = self.quad_gen.nextquad()
             self.quad_gen.genquad(qid, 'end_function_block', name, '_', '_')
