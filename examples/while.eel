@@ -1,0 +1,14 @@
+// SHOULD PRINT -42
+program whileprog
+    declare a, b enddeclare
+    a := 41;
+    b := 42;
+
+    while a <> -b
+         a := a - 1;
+         while a = b
+            print 9999;
+         endwhile;
+    endwhile;
+    print a;
+endprogram

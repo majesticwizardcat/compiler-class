@@ -1,0 +1,19 @@
+program forcaseprog
+    declare i, bit enddeclare
+    bit := 0;
+
+    forcase
+        when bit = 0:
+            i := i + 1;
+            bit := 1;
+            print bit;
+        when bit = 1:
+            i := i + 1;
+            bit := 0;
+            print bit;
+        when i = 10:
+            i := i + 1;
+            bit := -1;
+            print bit;
+    endforcase;
+endprogram
