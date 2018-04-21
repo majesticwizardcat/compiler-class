@@ -423,6 +423,7 @@ class SyntaxAnal:
 
     def parse_exitstat(self):
         self.consume('exit')
+        self.quad_gen.genquad('halt', '_', '_', '_')
 
     def parse_whilestat(self):
         self.consume('while')
@@ -469,7 +470,8 @@ class SyntaxAnal:
 
     def parse_returnstat(self):
         self.consume('return')
-        self.parse_expression()
+        exp = self.parse_expression()
+        self.quad_gen.genquad('retv', exp, '_', '_')
 
     def parse_printstat(self):
         self.consume('print')
