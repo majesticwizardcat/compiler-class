@@ -695,10 +695,10 @@ class CBackend:
                 c_op = '=='
             elif op == '<>':
                 c_op = '!='
-            ret = 'if (%s %s %s) goto L_%d;' % (q.term0, c_op, q.term1,
+            ret = 'if (%s %s %s) goto L_%s;' % (q.term0, c_op, q.term1,
                     q.target)
         elif op == 'jump':
-            ret = 'goto L_%d;' % q.target
+            ret = 'goto L_%s;' % q.target
         elif op == 'out':
             ret = 'printf("%%d\\n", %s);' % q.term0
         elif op == 'inp':
