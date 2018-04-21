@@ -302,13 +302,11 @@ class SyntaxAnal:
     def parse_program(self):
         self.consume('program')
         name = self.consume('id').value
-        # TODO: rename to begin_block in accordance to slides?
-        self.quad_gen.genquad('begin_program_block', name, '_', '_')
+        self.quad_gen.genquad('begin_block', name, '_', '_')
         self.parse_block()
         # TODO: halt only on the main program (how to decide which one is main?)
         self.quad_gen.genquad('halt', '_', '_', '_')
-        # TODO: rename ditto?
-        self.quad_gen.genquad('end_program_block', name, '_', '_')
+        self.quad_gen.genquad('end_block', name, '_', '_')
         self.consume('endprogram')
 
     def parse_block(self):
@@ -340,16 +338,16 @@ class SyntaxAnal:
         if self.peek('procedure'):
             self.consume('procedure')
             name = self.consume('id').value
-            self.quad_gen.genquad('begin_procedure_block', name, '_', '_')
+            self.quad_gen.genquad('begin_block', name, '_', '_')
             self.parse_procorfuncbody()
-            self.quad_gen.genquad('end_procedure_block', name, '_', '_')
+            self.quad_gen.genquad('end_block', name, '_', '_')
             self.consume('endprocedure')
         else:
             self.consume('function')
             name = self.consume('id').value
-            self.quad_gen.genquad('begin_function_block', name, '_', '_')
+            self.quad_gen.genquad('begin_block', name, '_', '_')
             self.parse_procorfuncbody()
-            self.quad_gen.genquad('end_function_block', name, '_', '_')
+            self.quad_gen.genquad('end_block', name, '_', '_')
             self.consume('endfunction')
 
     def parse_procorfuncbody(self):
@@ -742,7 +740,7 @@ class CBackend:
         op = q.op
         if op in ['+', '-', '*', '/']:
             ret = '%s = %s %s %s;' % (q.target, q.term0, op, q.term1)
-        elif op in ['begin_program_block', 'end_program_block', 'halt', 'int']:
+        elif op in ['begin_block', 'end_block', 'halt', 'int']:
             ret = '{}'
         elif op == ':=':
             ret = '%s = %s;' % (q.target, q.term0)
