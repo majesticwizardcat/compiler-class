@@ -306,11 +306,15 @@ class SyntaxAnal:
 
     def parse_varlist(self):
         if self.peek('id'):
-            self.consume('id')
+            vid = self.consume('id').value
+            qid = self.quad_gen.nextquad()
+            self.quad_gen.genquad(qid, 'int', vid, '_', '_')
 
             while self.peek('comma'):
                 self.consume('comma')
-                self.consume('id')
+                vid = self.consume('id').value
+                qid = self.quad_gen.nextquad()
+                self.quad_gen.genquad(qid, 'int', vid, '_', '_')
     
     def parse_subprograms(self):
         while self.peek('procedure') or self.peek('function'):
@@ -654,7 +658,7 @@ class CBackend:
         op = q.op
         if op in ['+', '-', '*', '/']:
             ret = '%s = %s %s %s;' % (q.target, q.term0, op, q.term1)
-        elif op in ['begin_program_block', 'end_program_block', 'halt']:
+        elif op in ['begin_program_block', 'end_program_block', 'halt', 'int']:
             ret = '{}'
         elif op == ':=':
             ret = '%s = %s;' % (q.target, q.term0)
@@ -683,8 +687,9 @@ class CBackend:
         return '// (%s, %s, %s, %s)' % (quad.op, quad.term0, quad.term1, quad.target)
 
     def identifiers(self):
-        targets = set(quad.target for quad in self.quadlist if quad.target != '_')
-        return ['\tint %s;' % ', '.join(targets)]
+        temps = set(quad.target for quad in self.quadlist if quad.target.startswith('T_'))
+        declared_variables = set(quad.term0 for quad in self.quadlist if quad.op == 'int')
+        return ['\tint %s;' % ', '.join(temps | declared_variables)]
 
 import argparse
 import sys
