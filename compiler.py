@@ -308,14 +308,12 @@ class SyntaxAnal:
     def parse_varlist(self):
         if self.peek('id'):
             vid = self.consume('id').value
-            qid = self.quad_gen.nextquad()
-            self.quad_gen.genquad(qid, 'int', vid, '_', '_')
+            self.quad_gen.genquad('int', vid, '_', '_')
 
             while self.peek('comma'):
                 self.consume('comma')
                 vid = self.consume('id').value
-                qid = self.quad_gen.nextquad()
-                self.quad_gen.genquad(qid, 'int', vid, '_', '_')
+                self.quad_gen.genquad('int', vid, '_', '_')
     
     def parse_subprograms(self):
         while self.peek('procedure') or self.peek('function'):
@@ -714,7 +712,7 @@ class CBackend:
         return '// (%s, %s, %s, %s)' % (quad.op, quad.term0, quad.term1, quad.target)
 
     def identifiers(self):
-        temps = set(quad.target for quad in self.quadlist if quad.target.startswith('T_'))
+        temps = set(quad.target for quad in self.quadlist if str(quad.target).startswith('T_'))
         declared_variables = set(quad.term0 for quad in self.quadlist if quad.op == 'int')
         return ['\tint %s;' % ', '.join(temps | declared_variables)]
 
