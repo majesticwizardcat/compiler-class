@@ -1,0 +1,20 @@
+program switchprog
+    declare i, bit enddeclare
+    bit := 0;
+
+    repeat
+        switch bit
+            case 0:
+                bit := 1;
+                print bit;
+            case 1:
+                bit := 0;
+                print bit;
+        endswitch;
+        i := i + 1;
+        if i > 10 then
+            print -1;
+            exit;
+        endif;
+    endrepeat;
+endprogram
