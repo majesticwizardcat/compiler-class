@@ -1,0 +1,14 @@
+program booleans
+   declare a, b enddeclare
+
+   a := 42;
+   b := 84;
+   if [a <> 42 or b <> 84] and true then
+    print 1
+   else
+    if false then
+        print 2
+    endif;
+    print 0
+   endif
+endprogram
