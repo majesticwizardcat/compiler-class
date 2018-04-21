@@ -669,7 +669,7 @@ class CBackend:
         elif op == 'jump':
             ret = 'goto L_%d;' % q.target
         elif op == 'out':
-            ret = 'printf("%%d", %s);' % q.term0
+            ret = 'printf("%%d\\n", %s);' % q.term0
         elif op == 'inp':
             ret = 'scanf("%%d", &%s);' % q.term0
         else:
