@@ -448,19 +448,28 @@ class SyntaxAnal:
 
     def parse_switchstat(self):
         self.consume('switch')
-        self.parse_expression()
-        self.consume('case')
-        self.parse_expression()
-        self.consume('colon')
-        self.parse_statements()
+        expr = self.parse_expression()
 
+        jumps_when_done = self.parse_case(expr)
         while self.peek('case'):
-            self.consume('case')
-            self.parse_expression()
-            self.consume('colon')
-            self.parse_statements()
+            jumps_when_done += self.parse_case(expr)
         
         self.consume('endswitch')
+        self.quad_gen.backpatch(jumps_when_done, self.quad_gen.nextquad())
+
+    def parse_case(self, expr1):
+        self.consume('case')
+        expr2 = self.parse_expression()
+
+        neq_quad = self.quad_gen.nextquad()
+        self.quad_gen.genquad('<>', expr1, expr2, '_')
+
+        self.consume('colon')
+        self.parse_statements()
+        jump_when_done = self.quad_gen.nextquad()
+        self.quad_gen.genquad('jump', '_', '_', '_')
+        self.quad_gen.backpatch([neq_quad], self.quad_gen.nextquad())
+        return [jump_when_done]
 
     def parse_forcasestat(self):
         self.consume('forcase')
