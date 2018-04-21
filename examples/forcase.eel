@@ -1,6 +1,7 @@
 program forcaseprog
     declare i, bit enddeclare
     bit := 0;
+    i := 0;
 
     forcase
         when bit = 0:
