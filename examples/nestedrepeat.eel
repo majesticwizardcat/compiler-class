@@ -1,0 +1,17 @@
+// SHOULD PRINT 6
+program example3
+   declare a enddeclare
+    a := 0;
+   repeat
+    repeat
+        a := a + 1;
+        if a > 5 then
+            exit
+        endif
+    endrepeat;
+    print a;
+    exit;
+    exit;
+    exit;
+   endrepeat;
+endprogram
