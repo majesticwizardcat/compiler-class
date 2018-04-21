@@ -1,0 +1,5 @@
+program inputprogram
+    declare foo enddeclare
+    input foo;
+    print foo;
+endprogram
