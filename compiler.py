@@ -1,11 +1,7 @@
 #!/usr/bin/env python3
 #Karantias Konstantinos 2454 cse32454 Goulioumis Ioannis 2232 cse32232
 from collections import namedtuple, defaultdict
-from itertools import tee
 import re
-import pprint
-
-pp = pprint.PrettyPrinter().pprint
 
 INVALID_TOKENS = [
     ('ccomment', re.compile(r'\A\*\/')), # should normally be consumed via IGNORED_TOKENS's comment, otherwise there was no comment open
@@ -227,17 +223,6 @@ class QuadGenerator:
         self.temp_id += 1
         return temp
 
-    def emptylist(self):
-        return []
-
-    def makelist(self, x):
-        lst = self.emptylist()
-        lst.append(x)
-        return lst
-
-    def merge(self, lst0, lst1):
-        return lst0 + lst1
-
     def backpatch(self, lst, target):
         for l in lst:
             quad = self.quad_list[l]
@@ -420,7 +405,7 @@ class SyntaxAnal:
 
         old_exits = self.exits
         self.exits = []
-        maybe_exit = self.parse_statements()
+        self.parse_statements()
         self.quad_gen.genquad('jump', '_', '_', in_repeat)
 
         self.quad_gen.backpatch(self.exits, self.quad_gen.nextquad())
@@ -697,7 +682,6 @@ class SyntaxAnal:
 
 class CBackend:
     def __init__(self, quadgen):
-        self.quadgen = quadgen
         self.quadlist = quadgen.quad_list
 
     def convert(self):
