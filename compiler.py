@@ -435,8 +435,15 @@ class SyntaxAnal:
 
     def parse_whilestat(self):
         self.consume('while')
-        self.parse_condition()
+        pre_cond = self.quad_gen.nextquad()
+        cond = self.parse_condition()
+        in_while = self.quad_gen.nextquad()
+        self.quad_gen.backpatch(cond.true, in_while)
         self.parse_statements()
+        self.quad_gen.genquad('jump', '_', '_', pre_cond)
+
+        after_while = self.quad_gen.nextquad()
+        self.quad_gen.backpatch(cond.false, after_while)
         self.consume('endwhile')
 
     def parse_switchstat(self):
