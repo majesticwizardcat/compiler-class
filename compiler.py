@@ -216,12 +216,11 @@ class QuadGenerator:
         self.quad_list = []
     
     def nextquad(self):
-        cur = self.quad_id
-        self.quad_id += 1
-        return cur
+        return self.quad_id
 
-    def genquad(self, quad_id, op, term0, term1, target):
-        self.quad_list.append(Quad(id=quad_id, op=op, term0=term0, term1=term1, target=target))
+    def genquad(self, op, term0, term1, target):
+        self.quad_list.append(Quad(id=self.quad_id, op=op, term0=term0, term1=term1, target=target))
+        self.quad_id += 1
 
     def newtemp(self):
         temp = 'T_%d' % self.temp_id
@@ -281,16 +280,13 @@ class SyntaxAnal:
     def parse_program(self):
         self.consume('program')
         name = self.consume('id').value
-        qid = self.quad_gen.nextquad()
         # TODO: rename to begin_block in accordance to slides?
-        self.quad_gen.genquad(qid, 'begin_program_block', name, '_', '_')
+        self.quad_gen.genquad('begin_program_block', name, '_', '_')
         self.parse_block()
-        qid = self.quad_gen.nextquad()
         # TODO: halt only on the main program (how to decide which one is main?)
-        self.quad_gen.genquad(qid, 'halt', '_', '_', '_')
-        qid = self.quad_gen.nextquad()
+        self.quad_gen.genquad('halt', '_', '_', '_')
         # TODO: rename ditto?
-        self.quad_gen.genquad(qid, 'end_program_block', name, '_', '_')
+        self.quad_gen.genquad('end_program_block', name, '_', '_')
         self.consume('endprogram')
     
     def parse_block(self):
@@ -324,20 +320,16 @@ class SyntaxAnal:
         if self.peek('procedure'):
             self.consume('procedure')
             name = self.consume('id').value
-            qid = self.quad_gen.nextquad()
-            self.quad_gen.genquad(qid, 'begin_procedure_block', name, '_', '_')
+            self.quad_gen.genquad('begin_procedure_block', name, '_', '_')
             self.parse_procorfuncbody()
-            qid = self.quad_gen.nextquad()
-            self.quad_gen.genquad(qid, 'end_procedure_block', name, '_', '_')
+            self.quad_gen.genquad('end_procedure_block', name, '_', '_')
             self.consume('endprocedure')
         else:
             self.consume('function')
             name = self.consume('id').value
-            qid = self.quad_gen.nextquad()
-            self.quad_gen.genquad(qid, 'begin_function_block', name, '_', '_')
+            self.quad_gen.genquad('begin_function_block', name, '_', '_')
             self.parse_procorfuncbody()
-            qid = self.quad_gen.nextquad()
-            self.quad_gen.genquad(qid, 'end_function_block', name, '_', '_')
+            self.quad_gen.genquad('end_function_block', name, '_', '_')
             self.consume('endfunction')
 
     def parse_procorfuncbody(self):
@@ -400,8 +392,7 @@ class SyntaxAnal:
         target = self.consume('id').value
         op = self.consume('assign').value
         value = self.parse_expression()
-        qid = self.quad_gen.nextquad()
-        self.quad_gen.genquad(qid, op, value, '_', target)
+        self.quad_gen.genquad(op, value, '_', target)
 
     def parse_ifstat(self):
         self.consume('if')
@@ -465,8 +456,7 @@ class SyntaxAnal:
         self.consume('call')
         name = self.consume('id').value
         self.parse_actualpars()
-        qid = self.quad_gen.nextquad()
-        self.quad_gen.genquad(qid, 'call', name, '_', '_')
+        self.quad_gen.genquad('call', name, '_', '_')
 
     def parse_returnstat(self):
         self.consume('return')
@@ -475,14 +465,12 @@ class SyntaxAnal:
     def parse_printstat(self):
         self.consume('print')
         expr = self.parse_expression()
-        qid = self.quad_gen.nextquad()
-        self.quad_gen.genquad(qid, 'out', expr, '_', '_')
+        self.quad_gen.genquad('out', expr, '_', '_')
 
     def parse_inputstat(self):
         self.consume('input')
         name = self.consume('id').value
-        qid = self.quad_gen.nextquad()
-        self.quad_gen.genquad(qid, 'inp', name, '_', '_')
+        self.quad_gen.genquad('inp', name, '_', '_')
 
     def parse_actualpars(self):
         self.consume('oparen')
@@ -501,13 +489,11 @@ class SyntaxAnal:
         if self.peek('in'):
             self.consume('in')
             par = self.parse_expression()
-            qid = self.quad_gen.nextquad()
-            self.quad_gen.genquad(qid, 'par', par, 'cv', '_')
+            self.quad_gen.genquad('par', par, 'cv', '_')
         else:
             self.consume('inout')
             par = self.consume('id').value
-            qid = self.quad_gen.nextquad()
-            self.quad_gen.genquad(qid, 'par', par, 'ref', '_')
+            self.quad_gen.genquad('par', par, 'ref', '_')
 
     def parse_condition(self):
         self.parse_boolterm()
@@ -550,8 +536,7 @@ class SyntaxAnal:
             op = self.parse_addoper()
             secterm = self.parse_term()
             target = self.quad_gen.newtemp()
-            qid = self.quad_gen.nextquad()
-            self.quad_gen.genquad(qid, op, term, secterm, target)
+            self.quad_gen.genquad(op, term, secterm, target)
             term = target
 
         return term
@@ -563,8 +548,7 @@ class SyntaxAnal:
             op = self.parse_muloper()
             secfactor = self.parse_factor()
             target = self.quad_gen.newtemp()
-            qid = self.quad_gen.nextquad()
-            self.quad_gen.genquad(qid, op, factor, secfactor, target)
+            self.quad_gen.genquad(op, factor, secfactor, target)
             factor = target
 
         return factor
@@ -580,8 +564,7 @@ class SyntaxAnal:
             vid = self.consume('id').value
             ret = self.parse_idtail()
             if ret != '':
-                qid = self.quad_gen.nextquad()
-                self.quad_gen.genquad(qid, 'call', vid, '_', '_')
+                self.quad_gen.genquad('call', vid, '_', '_')
                 return ret
             else:
                 return vid
@@ -593,8 +576,7 @@ class SyntaxAnal:
         if self.peek('oparen'):
             self.parse_actualpars()
             retval = self.quad_gen.newtemp()
-            qid = self.quad_gen.nextquad()
-            self.quad_gen.genquad(qid, 'par', retval, 'ret', '_')
+            self.quad_gen.genquad('par', retval, 'ret', '_')
             return retval
 
         return ''
@@ -649,8 +631,8 @@ class CBackend:
         return ['}']
 
     def code(self):
-        return ['\tL_%d: %s %s' % (i, self.quad_to_c(quad), self.quad_to_comment(quad))
-            for i, quad in enumerate(self.quadlist)]
+        return ['\tL_%d: %s %s' % (quad.id, self.quad_to_c(quad), self.quad_to_comment(quad))
+            for quad in self.quadlist]
 
     @staticmethod
     def quad_to_c(q):
