@@ -1,5 +1,5 @@
 program booleans
-   declare a, b enddeclare
+   declare a, b enddeclare
 
    a := 42;
    b := 84;

@@ -1,8 +1,8 @@
 // SHOULD PRINT 6
 program example3
-   declare a enddeclare
+   declare a enddeclare
     a := 0;
-   repeat
+   repeat
     repeat
         a := a + 1;
         if a > 5 then
@@ -13,5 +13,5 @@ program example3
     exit;
     exit;
     exit;
-   endrepeat;
+   endrepeat;
 endprogram
