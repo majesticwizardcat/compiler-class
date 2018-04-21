@@ -243,9 +243,9 @@ class QuadGenerator:
             quad = self.quad_list[l]
             self.quad_list[l] = Quad(id=quad.id, op=quad.op, term0=quad.term0, term1=quad.term1, target=target)
 
-    def printquads(self):
-        for quad in self.quad_list:
-            print(quad)
+    def __str__(self):
+        return '\n'.join('%s: (%s, %s, %s, %s)' % (quad.id, quad.op, quad.term0,
+            quad.term1, quad.target) for quad in self.quad_list)
 
 class TrueFalse:
     def __init__(self, true=[], false=[]):
@@ -256,9 +256,6 @@ class SyntaxAnal:
     def __init__(self, tokens):
         self.tokens = tokens   
         self.quad_gen = QuadGenerator()
-
-    def print_quads(self):
-        self.quad_gen.printquads()
 
     def check_syntax(self):
         self.parse_program()
@@ -720,10 +717,17 @@ class CBackend:
 
 import argparse
 import sys
+import os
+import subprocess
 
 parser = argparse.ArgumentParser()
 parser.add_argument('source_file')
 args = parser.parse_args()
+
+basename = os.path.basename(args.source_file)
+sourcename = basename.split('.')[0]
+intermediate_filename = '%s.eeli' % sourcename
+c_filename = '%s.c' % sourcename
 
 with open(args.source_file, 'r') as source_file:
     source = source_file.read()
@@ -731,10 +735,15 @@ with open(args.source_file, 'r') as source_file:
         tokens = Lexer(source).tokenize()
         syntax_anal = SyntaxAnal(tokens)
         syntax_anal.check_syntax()
-        syntax_anal.print_quads()
-
         cbackend = CBackend(syntax_anal.quad_gen)
-        print(cbackend.convert())
+        print('Putting intermediate code in [%s]...' % intermediate_filename)
+        with open(intermediate_filename, 'w') as intermediate_file:
+            intermediate_file.write(str(syntax_anal.quad_gen))
+        print('Putting C code in [%s]...' % intermediate_filename)
+        with open(c_filename, 'w') as c_file:
+            c_file.write(cbackend.convert())
+        print('Compiling C code [%s] to [%s]...' % (c_filename, sourcename))
+        subprocess.call(['cc', '-o', sourcename, c_filename])
     except CompilationError as e:
         print('%s:%s\n' % (args.source_file, str(e)))
         sys.exit(1)
