@@ -256,6 +256,7 @@ class SyntaxAnal:
     def __init__(self, tokens):
         self.tokens = tokens   
         self.quad_gen = QuadGenerator()
+        self.exits = []
 
     def check_syntax(self):
         self.parse_program()
@@ -415,12 +416,22 @@ class SyntaxAnal:
 
     def parse_repeatstat(self):
         self.consume('repeat')
-        self.parse_statements()
+        in_repeat = self.quad_gen.nextquad()
+
+        old_exits = self.exits
+        self.exits = []
+        maybe_exit = self.parse_statements()
+        self.quad_gen.genquad('jump', '_', '_', in_repeat)
+
+        self.quad_gen.backpatch(self.exits, self.quad_gen.nextquad())
+        self.exits = old_exits
+
         self.consume('endrepeat')
 
     def parse_exitstat(self):
         self.consume('exit')
-        self.quad_gen.genquad('halt', '_', '_', '_')
+        self.exits.append(self.quad_gen.nextquad())
+        self.quad_gen.genquad('jump', '_', '_', '_')
 
     def parse_whilestat(self):
         self.consume('while')
