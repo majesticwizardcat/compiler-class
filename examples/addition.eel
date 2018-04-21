@@ -1,5 +1,5 @@
 program addition
-    a := 1 + 2;
-    b := 2 * a;
-    print b
+    a := 1 + 2; // 3
+    b := 2 * (a + 3 * 2); // 2 * (9)
+    print b / 2 // 9
 endprogram
