@@ -269,6 +269,73 @@ class TrueFalse:
         self.false = false
 
 
+class Entity:
+    def __init__(self, name):
+        self.name = name
+
+
+class VariableEntity(Entity):
+    def __init__(self, name, offset):
+        super().__init__(name)
+        self.offset = offset
+
+
+class FunctionEntity(Entity):
+    def __init__(self, name, start_quad, arguments, frame_length):
+        super().__init__(name)
+        self.start_quad = start_quad
+        self.arguments = arguments
+        self.frame_length = frame_length
+
+
+class ConstantEntity(Entity):
+    def __init__(self, name, value):
+        super().__init__(name)
+        self.value = value
+
+
+class ParameterEntity(Entity):
+    def __init__(self, name, mode, offset):
+        super().__init__(name)
+        self.mode = mode
+        self.offset = offset
+
+
+class TempVariableEntity(Entity):
+    def __init__(self, name, offset):
+        super().__init__(name)
+        self.offset = offset
+
+
+class Scope:
+    def __init__(self, nesting_level):
+        self.entities = []
+        self.nesting_level = nesting_level
+
+
+class SymbolTable:
+    def __init__(self):
+        self.scopes = []
+
+    def create_scope(self):
+        self.scopes.append(Scope(len(self.scopes)))
+
+    def destroy_scope(self):
+        return self.scopes.pop()
+
+    def create_entity(self, entity):
+        self.scopes[-1].entities.append(entity)
+
+    def add_argument(self, arg):
+        head = self.last_entity()
+        if not isinstance(head, FunctionEntity):
+            raise ValueError
+        head.add_argument(arg)
+
+    def last_entity(self):
+        return self.scopes[-1].entities[-1]
+
+
 class SyntaxAnal:
     def __init__(self, tokens):
         self.tokens = tokens
