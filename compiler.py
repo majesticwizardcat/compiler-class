@@ -275,13 +275,13 @@ class Entity:
 
 
 class VariableEntity(Entity):
-    def __init__(self, name, offset):
+    def __init__(self, name, offset=None):
         super().__init__(name)
         self.offset = offset
 
 
 class FunctionEntity(Entity):
-    def __init__(self, name, start_quad, arguments, frame_length):
+    def __init__(self, name, start_quad, arguments=[], frame_length=None):
         super().__init__(name)
         self.start_quad = start_quad
         self.arguments = arguments
@@ -313,27 +313,53 @@ class Scope:
         self.nesting_level = nesting_level
 
 
+class Argument:
+    def __init__(self, name, mode):
+        self.name = name
+        self.mode = mode
+
+
 class SymbolTable:
     def __init__(self):
         self.scopes = []
 
     def create_scope(self):
+        params = []
+        if isinstance(self.last_entity(), FunctionEntity):
+            params = [
+                ParameterEntity(arg.name, arg.mode, 12 + i * 4)
+                for i, arg in enumerate(self.last_entity().arguments)
+            ]
         self.scopes.append(Scope(len(self.scopes)))
+        self.scopes[-1].entities += params
+
+        print('scopes now', self.scopes)
+        print('entities now', self.scopes[-1].entities)
 
     def destroy_scope(self):
         return self.scopes.pop()
 
-    def create_entity(self, entity):
+    def add_entity(self, entity):
+        try:
+            entity.offset = self.last_entity().offset + 4 \
+            if self.last_entity() is not None else 12
+        except AttributeError:
+            pass
+
         self.scopes[-1].entities.append(entity)
+        print('add_entity(): entities now', self.scopes[-1].entities)
 
     def add_argument(self, arg):
         head = self.last_entity()
         if not isinstance(head, FunctionEntity):
             raise ValueError
-        head.add_argument(arg)
+        head.arguments.append(arg)
 
     def last_entity(self):
-        return self.scopes[-1].entities[-1]
+        try:
+            return self.scopes[-1].entities[-1]
+        except:
+            return None
 
 
 class SyntaxAnal:
@@ -341,6 +367,7 @@ class SyntaxAnal:
         self.tokens = tokens
         self.quad_gen = QuadGenerator()
         self.exits = []
+        self.table = SymbolTable()
 
     def check_syntax(self):
         self.parse_program()
@@ -377,9 +404,11 @@ class SyntaxAnal:
         self.consume('endprogram')
 
     def parse_block(self):
+        self.table.create_scope()
         self.parse_declarations()
         self.parse_subprograms()
         self.parse_statements()
+        self.table.destroy_scope()
 
     def parse_declarations(self):
         if self.peek('declare'):
@@ -391,11 +420,13 @@ class SyntaxAnal:
         if self.peek('id'):
             vid = self.consume('id').value
             self.quad_gen.genquad('int', vid, '_', '_')
+            self.table.add_entity(VariableEntity(vid))
 
             while self.peek('comma'):
                 self.consume('comma')
                 vid = self.consume('id').value
                 self.quad_gen.genquad('int', vid, '_', '_')
+                self.table.add_entity(VariableEntity(vid))
 
     def parse_subprograms(self):
         while self.peek('procedure') or self.peek('function'):
@@ -412,6 +443,8 @@ class SyntaxAnal:
         else:
             self.consume('function')
             name = self.consume('id').value
+            self.table.add_entity(
+                FunctionEntity(name, self.quad_gen.nextquad()))
             self.quad_gen.genquad('begin_block', name, '_', '_')
             self.parse_procorfuncbody()
             self.quad_gen.genquad('end_block', name, '_', '_')
@@ -435,12 +468,16 @@ class SyntaxAnal:
                 self.parse_formalparitem()
 
     def parse_formalparitem(self):
+        mode = None
         if self.peek('in'):
             self.consume('in')
+            mode = 'cv'
         else:
             self.consume('inout')
+            mode = 'ref'
 
-        self.consume('id')
+        name = self.consume('id').value
+        self.table.add_argument(Argument(name, mode))
 
     def parse_statements(self):
         self.parse_statement()
