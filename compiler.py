@@ -6,6 +6,7 @@ import re
 import subprocess
 import sys
 from collections import defaultdict, namedtuple
+from pprint import pformat
 
 INVALID_TOKENS = [
     (
@@ -269,7 +270,17 @@ class TrueFalse:
         self.false = false
 
 
-class Entity:
+class Serializable:
+    def __repr__(self):
+        return pformat(self.__dict__)
+
+
+class Comparable:
+    def __eq__(self, other):
+        return self.__dict__ == other.__dict__
+
+
+class Entity(Serializable, Comparable):
     def __init__(self, name):
         self.name = name
 
@@ -307,13 +318,13 @@ class TempVariableEntity(Entity):
         self.offset = offset
 
 
-class Scope:
+class Scope(Serializable):
     def __init__(self, nesting_level):
         self.entities = []
         self.nesting_level = nesting_level
 
 
-class Argument:
+class Argument(Serializable, Comparable):
     def __init__(self, name, mode):
         self.name = name
         self.mode = mode
@@ -322,6 +333,7 @@ class Argument:
 class SymbolTable:
     def __init__(self):
         self.scopes = []
+        print('initialized!')
 
     def create_scope(self):
         params = []
@@ -333,8 +345,8 @@ class SymbolTable:
         self.scopes.append(Scope(len(self.scopes)))
         self.scopes[-1].entities += params
 
-        print('scopes now', self.scopes)
-        print('entities now', self.scopes[-1].entities)
+        #print('scopes now', self.scopes)
+        #print('entities now', self.scopes[-1].entities)
 
     def destroy_scope(self):
         return self.scopes.pop()
@@ -347,7 +359,7 @@ class SymbolTable:
             pass
 
         self.scopes[-1].entities.append(entity)
-        print('add_entity(): entities now', self.scopes[-1].entities)
+        #print('add_entity(): entities now', self.scopes[-1].entities)
 
     def add_argument(self, arg):
         head = self.last_entity()
@@ -882,30 +894,31 @@ class CBackend:
         return ['\tint %s;' % ', '.join(temps | declared_variables)]
 
 
-parser = argparse.ArgumentParser()
-parser.add_argument('source_file')
-args = parser.parse_args()
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('source_file')
+    args = parser.parse_args()
 
-basename = os.path.basename(args.source_file)
-sourcename = basename.split('.')[0]
-intermediate_filename = '%s.eeli' % sourcename
-c_filename = '%s.c' % sourcename
+    basename = os.path.basename(args.source_file)
+    sourcename = basename.split('.')[0]
+    intermediate_filename = '%s.eeli' % sourcename
+    c_filename = '%s.c' % sourcename
 
-with open(args.source_file, 'r') as source_file:
-    source = source_file.read()
-try:
-    tokens = Lexer(source).tokenize()
-    syntax_anal = SyntaxAnal(tokens)
-    syntax_anal.check_syntax()
-    cbackend = CBackend(syntax_anal.quad_gen)
-    print('Putting intermediate code in [%s]...' % intermediate_filename)
-    with open(intermediate_filename, 'w') as intermediate_file:
-        intermediate_file.write(str(syntax_anal.quad_gen))
-    print('Putting C code in [%s]...' % intermediate_filename)
-    with open(c_filename, 'w') as c_file:
-        c_file.write(cbackend.convert())
-    print('Compiling C code [%s] to [%s]...' % (c_filename, sourcename))
-    subprocess.call(['cc', '-o', sourcename, c_filename])
-except CompilationError as e:
-    print('%s:%s\n' % (args.source_file, str(e)))
-    sys.exit(1)
+    with open(args.source_file, 'r') as source_file:
+        source = source_file.read()
+    try:
+        tokens = Lexer(source).tokenize()
+        syntax_anal = SyntaxAnal(tokens)
+        syntax_anal.check_syntax()
+        cbackend = CBackend(syntax_anal.quad_gen)
+        print('Putting intermediate code in [%s]...' % intermediate_filename)
+        with open(intermediate_filename, 'w') as intermediate_file:
+            intermediate_file.write(str(syntax_anal.quad_gen))
+        print('Putting C code in [%s]...' % intermediate_filename)
+        with open(c_filename, 'w') as c_file:
+            c_file.write(cbackend.convert())
+        print('Compiling C code [%s] to [%s]...' % (c_filename, sourcename))
+        subprocess.call(['cc', '-o', sourcename, c_filename])
+    except CompilationError as e:
+        print('%s:%s\n' % (args.source_file, str(e)))
+        sys.exit(1)
