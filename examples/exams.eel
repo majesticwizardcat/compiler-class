@@ -1,0 +1,17 @@
+program exams
+    declare a, b enddeclare
+    function P1 (in x, inout y)
+        declare c, d enddeclare
+
+        function P11 (in w, inout z)
+            declare e enddeclare
+
+            function P21 (in x)
+                e := x;
+                z := w;
+                e := P21(in a);
+                return e;
+            endfunction
+        endfunction
+    endfunction
+endprogram
