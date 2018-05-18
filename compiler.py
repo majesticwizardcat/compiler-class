@@ -387,7 +387,8 @@ class SymbolTable:
                 parent_last, FunctionEntity) and parent_last.type == 'function'
         return False
 
-    def lookup(self, name):
+    def lookup(self, name, scopes=None):
+        scopes = self.scopes if scopes is None else scopes
         for scope in self.scopes[::-1]:
             for entity in scope.entities[::-1]:
                 try:
@@ -396,6 +397,9 @@ class SymbolTable:
                 except AttributeError:
                     pass
         return None
+
+    def lookup_on_current_scope(self, name):
+        return self.lookup(name, scopes=[self.scopes[-1]])
 
 
 class SyntaxAnal:
@@ -409,7 +413,7 @@ class SyntaxAnal:
         self.inside_repeat = False
 
     def ensure_we_do_not_redeclare(self, name):
-        if self.table.lookup(name) is not None:
+        if self.table.lookup_on_current_scope(name) is not None:
             raise CompilationError(
                 pos=self.last_pos, msg='Redeclaring %s is not allowed.' % name)
 
