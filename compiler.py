@@ -333,7 +333,6 @@ class Argument(Serializable, Comparable):
 class SymbolTable:
     def __init__(self):
         self.scopes = []
-        print('initialized!')
 
     def create_scope(self):
         params = []
