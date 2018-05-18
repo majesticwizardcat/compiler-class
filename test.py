@@ -154,6 +154,12 @@ class SymbolTableTest(unittest.TestCase):
                 frame_length=24)
         ])
 
+    def test_no_framelength_set_on_no_scopes(self):
+        tbl = SymbolTable()
+        tbl.create_scope()
+        tbl.add_entity(VariableEntity("foo"))
+        tbl.destroy_scope()
+
 
 if __name__ == '__main__':
     unittest.main()

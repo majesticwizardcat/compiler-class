@@ -349,7 +349,10 @@ class SymbolTable:
 
     def destroy_scope(self):
         last_scope = self.scopes.pop()
-        self.last_entity().frame_length = 12 + len(last_scope.entities) * 4
+        if len(self.scopes) > 0:
+            if not isinstance(self.last_entity(), FunctionEntity):
+                raise Exception
+            self.last_entity().frame_length = 12 + len(last_scope.entities) * 4
 
     def add_entity(self, entity):
         if hasattr(entity, 'offset'):
