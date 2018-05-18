@@ -292,11 +292,17 @@ class VariableEntity(Entity):
 
 
 class FunctionEntity(Entity):
-    def __init__(self, name, start_quad, arguments=None, frame_length=None):
+    def __init__(self,
+                 name,
+                 start_quad,
+                 arguments=None,
+                 frame_length=None,
+                 type='function'):
         super().__init__(name)
         self.start_quad = start_quad
         self.arguments = arguments if arguments is not None else []
         self.frame_length = frame_length
+        self.type = type
 
 
 class ConstantEntity(Entity):
@@ -381,6 +387,8 @@ class SyntaxAnal:
         self.quad_gen = QuadGenerator()
         self.exits = []
         self.table = SymbolTable()
+        self.last_pos = None
+        self.seen_return = False
 
     def check_syntax(self):
         self.parse_program()
@@ -394,7 +402,9 @@ class SyntaxAnal:
         #print('Trying to cunsume %s' % type)
         if self.peek(type):
             #print('consumed %s ' % type)
-            return self.tokens.pop(0)
+            tk = self.tokens.pop(0)
+            self.last_pos = tk.pos
+            return tk
         else:
             raise SyntaxAnalyzerError(
                 pos=self.tokens[0].pos,
@@ -423,6 +433,14 @@ class SyntaxAnal:
         self.parse_statements()
         self.table.destroy_scope()
 
+        if isinstance(self.table.last_entity(), FunctionEntity):
+            if self.table.last_entity(
+            ).type == 'function' and not self.seen_return:
+                raise CompilationError(
+                    pos=self.last_pos,
+                    msg='End of function block and no return found.',
+                    suggestion='Did you forget to return?')
+
     def parse_declarations(self):
         if self.peek('declare'):
             self.consume('declare')
@@ -449,6 +467,9 @@ class SyntaxAnal:
         if self.peek('procedure'):
             self.consume('procedure')
             name = self.consume('id').value
+            self.table.add_entity(
+                FunctionEntity(
+                    name, self.quad_gen.nextquad(), type='procedure'))
             self.quad_gen.genquad('begin_block', name, '_', '_')
             self.parse_procorfuncbody()
             self.quad_gen.genquad('end_block', name, '_', '_')
@@ -456,6 +477,7 @@ class SyntaxAnal:
         else:
             self.consume('function')
             name = self.consume('id').value
+            self.seen_return = False
             self.table.add_entity(
                 FunctionEntity(name, self.quad_gen.nextquad()))
             self.quad_gen.genquad('begin_block', name, '_', '_')
@@ -641,6 +663,7 @@ class SyntaxAnal:
 
     def parse_returnstat(self):
         self.consume('return')
+        self.seen_return = True
         exp = self.parse_expression()
         self.quad_gen.genquad('retv', exp, '_', '_')
 
