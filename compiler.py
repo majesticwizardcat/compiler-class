@@ -393,7 +393,9 @@ class SymbolTable:
             for entity in scope.entities[::-1]:
                 try:
                     if entity.name == name:
-                        return (entity, scope.nesting_level)
+                        return namedtuple('LookupResult',
+                                          ['entity', 'nesting_level'])(
+                                              entity, scope.nesting_level)
                 except AttributeError:
                     pass
         return None
