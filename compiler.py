@@ -292,10 +292,10 @@ class VariableEntity(Entity):
 
 
 class FunctionEntity(Entity):
-    def __init__(self, name, start_quad, arguments=[], frame_length=None):
+    def __init__(self, name, start_quad, arguments=None, frame_length=None):
         super().__init__(name)
         self.start_quad = start_quad
-        self.arguments = arguments
+        self.arguments = arguments if arguments is not None else []
         self.frame_length = frame_length
 
 
