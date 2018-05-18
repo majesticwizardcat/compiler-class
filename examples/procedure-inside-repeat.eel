@@ -1,0 +1,8 @@
+// @should_not_compile
+program foo
+    repeat
+        procedure bar()
+            exit
+        endprocedure
+    endrepeat
+endprogram
