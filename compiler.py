@@ -348,7 +348,8 @@ class SymbolTable:
         #print('entities now', self.scopes[-1].entities)
 
     def destroy_scope(self):
-        return self.scopes.pop()
+        last_scope = self.scopes.pop()
+        self.last_entity().frame_length = 12 + len(last_scope.entities) * 4
 
     def add_entity(self, entity):
         if hasattr(entity, 'offset'):

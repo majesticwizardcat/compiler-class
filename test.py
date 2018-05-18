@@ -116,6 +116,44 @@ class SymbolTableTest(unittest.TestCase):
                              ],
                              nesting_level=3))
 
+        tbl.destroy_scope()
+        self.assertEqual(tbl.scopes[-1],
+                         Scope(
+                             entities=[
+                                 ParameterEntity(
+                                     name="w", mode="cv", offset=12),
+                                 ParameterEntity(
+                                     name="z", mode="ref", offset=16),
+                                 VariableEntity(name="e", offset=20),
+                                 FunctionEntity(
+                                     name="P21",
+                                     start_quad=8,
+                                     arguments=[Argument("x", "cv")],
+                                     frame_length=20)
+                             ],
+                             nesting_level=2))
+
+    def test_framelength(self):
+        tbl = SymbolTable()
+        tbl.create_scope()
+        tbl.add_entity(VariableEntity("foo"))
+        tbl.add_entity(FunctionEntity("fn", 42))
+        tbl.add_argument(Argument("bat", "cv"))
+        tbl.add_argument(Argument("man", "ref"))
+        tbl.create_scope()
+        tbl.add_entity(VariableEntity("baz"))
+        tbl.destroy_scope()
+
+        self.assertEqual(tbl.scopes[-1].entities, [
+            VariableEntity(name="foo", offset=12),
+            FunctionEntity(
+                name="fn",
+                start_quad=42,
+                arguments=[Argument("bat", "cv"),
+                           Argument("man", "ref")],
+                frame_length=24)
+        ])
+
 
 if __name__ == '__main__':
     unittest.main()
