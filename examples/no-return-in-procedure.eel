@@ -1,0 +1,5 @@
+// @should_compile
+program testcase
+    procedure foo()
+    endprocedure
+endprogram
