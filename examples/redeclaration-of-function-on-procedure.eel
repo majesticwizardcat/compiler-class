@@ -1,0 +1,9 @@
+// @should_not_compile
+program foo
+    procedure baz()
+    endprocedure
+
+    function baz()
+        return 12
+    endfunction
+endprogram

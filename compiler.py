@@ -387,6 +387,16 @@ class SymbolTable:
                 parent_last, FunctionEntity) and parent_last.type == 'function'
         return False
 
+    def lookup(self, name):
+        for scope in self.scopes[::-1]:
+            for entity in scope.entities[::-1]:
+                try:
+                    if entity.name == name:
+                        return (entity, scope.nesting_level)
+                except AttributeError:
+                    pass
+        return None
+
 
 class SyntaxAnal:
     def __init__(self, tokens):
@@ -397,6 +407,11 @@ class SyntaxAnal:
         self.last_pos = None
         self.seen_return = False
         self.inside_repeat = False
+
+    def ensure_we_do_not_redeclare(self, name):
+        if self.table.lookup(name) is not None:
+            raise CompilationError(
+                pos=self.last_pos, msg='Redeclaring %s is not allowed.' % name)
 
     def check_syntax(self):
         self.parse_program()
@@ -458,12 +473,14 @@ class SyntaxAnal:
     def parse_varlist(self):
         if self.peek('id'):
             vid = self.consume('id').value
+            self.ensure_we_do_not_redeclare(vid)
             self.quad_gen.genquad('int', vid, '_', '_')
             self.table.add_entity(VariableEntity(vid))
 
             while self.peek('comma'):
                 self.consume('comma')
                 vid = self.consume('id').value
+                self.ensure_we_do_not_redeclare(vid)
                 self.quad_gen.genquad('int', vid, '_', '_')
                 self.table.add_entity(VariableEntity(vid))
 
@@ -475,6 +492,7 @@ class SyntaxAnal:
         if self.peek('procedure'):
             self.consume('procedure')
             name = self.consume('id').value
+            self.ensure_we_do_not_redeclare(name)
             self.table.add_entity(
                 FunctionEntity(
                     name, self.quad_gen.nextquad(), type='procedure'))
@@ -485,6 +503,7 @@ class SyntaxAnal:
         else:
             self.consume('function')
             name = self.consume('id').value
+            self.ensure_we_do_not_redeclare(name)
             self.seen_return = False
             self.table.add_entity(
                 FunctionEntity(name, self.quad_gen.nextquad()))
