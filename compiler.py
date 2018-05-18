@@ -457,6 +457,65 @@ class SymbolTable:
                                                 lambda x: x.has_signature(sig))
 
 
+class FinalGen:
+    def __init__(self, table):
+        self.table = table
+
+    def gnlvcode(self, var):
+        ret = []
+        ret.append('lw $t0, -4($sp)')
+        lookup_res = self.table.lookup(var)
+
+        for i in range(self.table.scopes[-1].nesting_level -
+                       lookup_res.nesting_level):
+            ret.append('lw $t0, -4($t0)')
+
+        ret.append('add $t0, $t0, -%d' % lookup_res.entity_offset)
+        return ret
+
+    def loadvr(self, var, reg):
+        lookup_res = self.table.lookup(var)
+        if var.isdigit():
+            return 'li $t%s, %s' % reg, var
+        elif lookup_res.nesting_level == 0:
+            return 'lw $t%s, -%d($s0)' % reg, lookup_res.entity.offset
+        elif lookup_res.nesting_level == self.table.scopes[-1].nesting_level:
+            if isinstance(lookup_res.entity, ParameterEntity) and \
+                    lookup_res.entity.mode == 'ref':
+                return 'lw $t0, -%d($sp)\nlw $t%s, ($t0)' % \
+                        lookup_res.entity.offset, reg
+
+            return 'lw $t%s, -%d($sp)' % reg, lookup_res.entity.offset
+        else:
+            gnlvcode(var)
+
+            if isinstance(lookup_res.entity, ParameterEntity) and \
+                    lookup_res.entity.mode == 'ref':
+                return 'lw $t0, ($t0)\nlw $t%s, ($t0)' % reg
+
+            return 'lw $t%d, ($t0)' % reg
+
+    def storerv(self, reg, var):
+        lookup_res = self.table.lookup(var)
+        if lookup_res.nesting_level == 0:
+            return 'sw $t%s, -%d($s0)' % reg, lookup_res.entity.offset
+        elif lookup_res.nesting_level == self.table.scopes[-1].nesting_level:
+            if isinstance(lookup_res.entity, ParameterEntity) and \
+                    lookup_res.entity.mode == 'ref':
+                return 'lw $t0, -%d($sp)\nsw $t%s, ($t0)' % \
+                        lookup_res.entity.offset, reg
+
+            return 'sw $t%s, -%d($sp)' % reg, lookup_res.entity.offset
+        else:
+            gnlvcode(var)
+
+            if isinstance(lookup_res.entity, ParameterEntity) and \
+                    lookup_res.entity.mode == 'ref':
+                return 'lw $t0, ($t0)\nsw $t%s, ($t0)' % reg
+
+            return 'sw $t%d, ($t0)' % reg
+
+
 class SyntaxAnal:
     def __init__(self, tokens):
         self.tokens = tokens
