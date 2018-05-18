@@ -380,6 +380,13 @@ class SymbolTable:
         except:
             return None
 
+    def am_i_inside_function(self):
+        if len(self.scopes) > 1:
+            parent_last = self.scopes[-2].entities[-1]
+            return isinstance(
+                parent_last, FunctionEntity) and parent_last.type == 'function'
+        return False
+
 
 class SyntaxAnal:
     def __init__(self, tokens):
@@ -666,6 +673,12 @@ class SyntaxAnal:
         self.seen_return = True
         exp = self.parse_expression()
         self.quad_gen.genquad('retv', exp, '_', '_')
+
+        if not self.table.am_i_inside_function():
+            raise CompilationError(
+                pos=self.last_pos,
+                msg='Found stray return outside function block.',
+                suggestion='Remove the stray return.')
 
     def parse_printstat(self):
         self.consume('print')
