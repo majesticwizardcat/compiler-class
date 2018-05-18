@@ -396,6 +396,7 @@ class SyntaxAnal:
         self.table = SymbolTable()
         self.last_pos = None
         self.seen_return = False
+        self.inside_repeat = False
 
     def check_syntax(self):
         self.parse_program()
@@ -581,6 +582,8 @@ class SyntaxAnal:
         self.consume('repeat')
         in_repeat = self.quad_gen.nextquad()
 
+        self.inside_repeat = True
+
         old_exits = self.exits
         self.exits = []
         self.parse_statements()
@@ -589,10 +592,17 @@ class SyntaxAnal:
         self.quad_gen.backpatch(self.exits, self.quad_gen.nextquad())
         self.exits = old_exits
 
+        self.inside_repeat = False
+
         self.consume('endrepeat')
 
     def parse_exitstat(self):
         self.consume('exit')
+        if not self.inside_repeat:
+            raise CompilationError(
+                pos=self.last_pos,
+                msg='Found exit outside a repeat block.',
+                suggestion='Remove the exit?')
         self.exits.append(self.quad_gen.nextquad())
         self.quad_gen.genquad('jump', '_', '_', '_')
 
