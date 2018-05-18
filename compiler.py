@@ -313,15 +313,15 @@ class ParameterEntity(Entity):
 
 
 class TempVariableEntity(Entity):
-    def __init__(self, name, offset):
+    def __init__(self, name, offset=None):
         super().__init__(name)
         self.offset = offset
 
 
-class Scope(Serializable):
-    def __init__(self, nesting_level):
-        self.entities = []
+class Scope(Serializable, Comparable):
+    def __init__(self, nesting_level, entities=None):
         self.nesting_level = nesting_level
+        self.entities = [] if entities is None else entities
 
 
 class Argument(Serializable, Comparable):
@@ -351,11 +351,9 @@ class SymbolTable:
         return self.scopes.pop()
 
     def add_entity(self, entity):
-        try:
+        if hasattr(entity, 'offset'):
             entity.offset = self.last_entity().offset + 4 \
             if self.last_entity() is not None else 12
-        except AttributeError:
-            pass
 
         self.scopes[-1].entities.append(entity)
         #print('add_entity(): entities now', self.scopes[-1].entities)
