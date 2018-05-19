@@ -1,3 +1,4 @@
+// @should_compile
 program switchprog
     declare i, bit enddeclare
     bit := 0;

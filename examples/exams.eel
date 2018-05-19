@@ -1,3 +1,4 @@
+// @should_compile
 program exams
     declare a, b enddeclare
     function P1 (in x, inout y)

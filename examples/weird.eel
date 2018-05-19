@@ -1,3 +1,4 @@
+// @should_compile
 /* Comment testing
 
 /* <- this should work
