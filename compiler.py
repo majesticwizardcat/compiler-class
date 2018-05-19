@@ -989,8 +989,8 @@ if __name__ == '__main__':
         print('Putting C code in [%s]...' % intermediate_filename)
         with open(c_filename, 'w') as c_file:
             c_file.write(cbackend.convert())
-        print('Compiling C code [%s] to [%s]...' % (c_filename, sourcename))
-        subprocess.call(['cc', '-o', sourcename, c_filename])
+        #print('Compiling C code [%s] to [%s]...' % (c_filename, sourcename))
+        #subprocess.call(['cc', '-o', sourcename, c_filename])
     except CompilationError as e:
         print('%s:%s\n' % (args.source_file, str(e)))
         sys.exit(1)
