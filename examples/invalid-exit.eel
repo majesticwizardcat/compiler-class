@@ -1,4 +1,4 @@
-// SHOULD NOT COMPILE
+// @should_not_compile
 program invalidexit
    declare a enddeclare
     a := 0;

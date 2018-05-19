@@ -1,3 +1,4 @@
+// @should_compile
 // SHOULD PRINT 6
 program example3
    declare a enddeclare

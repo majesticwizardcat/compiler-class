@@ -1,3 +1,4 @@
+// @should_compile
 // SHOULD PRINT -42
 program whileprog
     declare a, b enddeclare
