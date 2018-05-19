@@ -875,6 +875,7 @@ class SyntaxAnal:
                 self.quad_gen.genquad('call', vid, '_', '_')
                 return place_of_fn_call
             else:
+                self.ensure_a_valid_variable(vid)
                 return vid
 
         else:
@@ -886,6 +887,9 @@ class SyntaxAnal:
             name,
             extracheck=lambda x: x.type == 'function',
             typestr='function')
+
+    def ensure_a_valid_variable(self, name):
+        self.ensure_a_valid(VariableEntity, name, typestr='variable')
 
     def parse_idtail(self):
         if self.peek('oparen'):

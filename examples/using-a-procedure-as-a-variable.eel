@@ -1,0 +1,8 @@
+// @should_not_compile
+program foo
+    declare bat enddeclare
+    procedure procbaz()
+        print 42
+    endprocedure
+    bat := 42 * procbaz
+endprogram
