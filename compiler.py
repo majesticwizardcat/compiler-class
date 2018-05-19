@@ -412,7 +412,7 @@ class SyntaxAnal:
         self.table = SymbolTable()
         self.last_pos = None
         self.seen_return = False
-        self.inside_repeat = False
+        self.inside_repeat = 0
 
     def ensure_we_do_not_redeclare(self, name):
         if self.table.lookup_on_current_scope(name) is not None:
@@ -607,7 +607,7 @@ class SyntaxAnal:
         self.consume('repeat')
         in_repeat = self.quad_gen.nextquad()
 
-        self.inside_repeat = True
+        self.inside_repeat += 1
 
         old_exits = self.exits
         self.exits = []
@@ -617,13 +617,13 @@ class SyntaxAnal:
         self.quad_gen.backpatch(self.exits, self.quad_gen.nextquad())
         self.exits = old_exits
 
-        self.inside_repeat = False
+        self.inside_repeat -= 1
 
         self.consume('endrepeat')
 
     def parse_exitstat(self):
         self.consume('exit')
-        if not self.inside_repeat:
+        if self.inside_repeat < 1:
             raise CompilationError(
                 pos=self.last_pos,
                 msg='Found exit outside a repeat block.',
