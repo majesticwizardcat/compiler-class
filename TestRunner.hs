@@ -58,8 +58,8 @@ greenPutStrLn output = putStrLn $ "\x1b[32m" ++ output ++ "\x1b[0m"
 redPutStrLn :: String -> IO ()
 redPutStrLn output = putStrLn $ "\x1b[31m" ++ output ++ "\x1b[0m"
 
-bluePutStrLn :: String -> IO ()
-bluePutStrLn output = putStrLn $ "\x1b[36m" ++ output ++ "\x1b[0m"
+yellowPutStrLn :: String -> IO ()
+yellowPutStrLn output = putStrLn $ "\x1b[33m" ++ output ++ "\x1b[0m"
 
 testAnnotated :: FilePath -> IO Bool
 testAnnotated file = do
@@ -80,7 +80,7 @@ test file = do
     hasAnnotations <- shouldBeTested file
     if hasAnnotations
     then testAnnotated file
-    else bluePutStrLn "skip" >> return True
+    else yellowPutStrLn "skip" >> return True
 
 main :: IO ()
 main = do
