@@ -617,9 +617,8 @@ class SyntaxAnal:
         self.quad_gen.backpatch(self.exits, self.quad_gen.nextquad())
         self.exits = old_exits
 
-        self.inside_repeat -= 1
-
         self.consume('endrepeat')
+        self.inside_repeat -= 1
 
     def parse_exitstat(self):
         self.consume('exit')
