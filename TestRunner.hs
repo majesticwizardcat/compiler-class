@@ -1,3 +1,4 @@
+#!/usr/bin/env runhaskell
 import Control.Monad (filterM)
 import System.Directory (getCurrentDirectory, listDirectory, removeDirectoryRecursive)
 import System.FilePath (hasExtension, takeExtension, replaceBaseName, takeBaseName, (</>), takeFileName)
