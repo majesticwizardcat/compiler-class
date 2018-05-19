@@ -699,8 +699,16 @@ class SyntaxAnal:
     def parse_callstat(self):
         self.consume('call')
         name = self.consume('id').value
+        self.ensure_a_valid_procedure(name)
         self.parse_actualpars()
         self.quad_gen.genquad('call', name, '_', '_')
+
+    def ensure_a_valid_procedure(self, name):
+        self.ensure_a_valid(
+            FunctionEntity,
+            name,
+            extracheck=lambda x: x.type == 'procedure',
+            typestr='procedure')
 
     def parse_returnstat(self):
         self.consume('return')
@@ -839,6 +847,19 @@ class SyntaxAnal:
 
         return factor
 
+    def ensure_a_valid(self,
+                       typ,
+                       name,
+                       extracheck=lambda x: True,
+                       typestr=None):
+        lookup_result = self.table.lookup(name)
+        if lookup_result is None or not (isinstance(lookup_result.entity, typ)
+                                         and extracheck(lookup_result.entity)):
+            typestr = typestr if typestr is not None else typ.__name__
+            raise CompilationError(
+                pos=self.last_pos,
+                msg='Using "%s" as a %s but it\'s not one.' % (name, typestr))
+
     def parse_factor(self):
         if self.peek('oparen'):
             self.consume('oparen')
@@ -848,15 +869,19 @@ class SyntaxAnal:
 
         elif self.peek('id'):
             vid = self.consume('id').value
-            ret = self.parse_idtail()
-            if ret != '':
+            place_of_fn_call = self.parse_idtail()
+            if place_of_fn_call is not None:
+                self.ensure_a_valid(FunctionEntity, vid)
                 self.quad_gen.genquad('call', vid, '_', '_')
-                return ret
+                return place_of_fn_call
             else:
                 return vid
 
         else:
             return self.consume('int').value
+
+    def ensure_a_valid_function(self, name):
+        self.ensure_a_valid(FunctionEntity, name, typestr='function')
 
     def parse_idtail(self):
         if self.peek('oparen'):
@@ -865,7 +890,7 @@ class SyntaxAnal:
             self.quad_gen.genquad('par', retval, 'ret', '_')
             return retval
 
-        return ''
+        return None
 
     def parse_relationaloper(self):
         if self.peek('eq'):
