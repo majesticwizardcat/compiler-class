@@ -871,7 +871,7 @@ class SyntaxAnal:
             vid = self.consume('id').value
             place_of_fn_call = self.parse_idtail()
             if place_of_fn_call is not None:
-                self.ensure_a_valid(FunctionEntity, vid)
+                self.ensure_a_valid_function(vid)
                 self.quad_gen.genquad('call', vid, '_', '_')
                 return place_of_fn_call
             else:
