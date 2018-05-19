@@ -36,7 +36,7 @@ listDirectoryAbsolute dir = do
     contents <- listDirectory dir
     return $ map (\filename -> dir </> filename) contents
 
-passesTest :: FilePath -> IO (Bool)
+passesTest :: FilePath -> IO (Bool, Maybe String)
 passesTest file = do
     cwd <- getCurrentDirectory
     let compiler = cwd </> "compiler.py"
@@ -50,9 +50,9 @@ passesTest file = do
     shouldNot <- shouldNotCompile file
     case exit of
         ExitSuccess -> do
-            return should
+            return (should, Nothing)
         ExitFailure _ -> do
-            return shouldNot
+            return (shouldNot, Just output)
 
 greenPutStrLn :: String -> IO ()
 greenPutStrLn output = putStrLn $ "\x1b[32m" ++ output ++ "\x1b[0m"
@@ -63,10 +63,17 @@ redPutStrLn output = putStrLn $ "\x1b[31m" ++ output ++ "\x1b[0m"
 checkFile :: FilePath -> IO (Bool)
 checkFile file = do
     putStr $ (takeFileName file) ++ "... "
-    passes <- passesTest file
+    (passes, output) <- passesTest file
+
     if passes
     then greenPutStrLn "pass"
     else redPutStrLn "fail"
+
+    case output of 
+        Just out -> do
+            if not passes then putStrLn out else return ()
+        Nothing -> do
+            return ()
     return $ passes
 
 main :: IO ()
