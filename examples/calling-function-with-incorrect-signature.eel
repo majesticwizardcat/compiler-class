@@ -1,0 +1,9 @@
+// @should_not_compile
+program foo
+    declare x enddeclare
+    function foofn(in x, inout y)
+        return x * y
+    endfunction
+
+    x := foofn(in 4, in 42)
+endprogram

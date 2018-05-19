@@ -700,7 +700,8 @@ class SyntaxAnal:
         self.consume('call')
         name = self.consume('id').value
         self.ensure_a_valid_procedure(name)
-        self.parse_actualpars()
+        par_types = self.parse_actualpars()
+        self.ensure_signature(name, par_types)
         self.quad_gen.genquad('call', name, '_', '_')
 
     def ensure_a_valid_procedure(self, name):
@@ -709,6 +710,13 @@ class SyntaxAnal:
             name,
             extracheck=lambda x: x.type == 'procedure',
             typestr='procedure')
+
+    def ensure_signature(self, name, types):
+        proc = self.table.lookup(name).entity
+        expected = [arg.mode for arg in proc.arguments]
+        if expected != types:
+            raise CompilationError(
+                pos=self.last_pos, msg='Invalid signature for "%s".' % name)
 
     def parse_returnstat(self):
         self.consume('return')
@@ -734,26 +742,31 @@ class SyntaxAnal:
 
     def parse_actualpars(self):
         self.consume('oparen')
-        self.parse_actualparlist()
+        pars = self.parse_actualparlist()
         self.consume('cparen')
+        return pars
 
     def parse_actualparlist(self):
+        pars = []
         if self.peek('in') or self.peek('inout'):
-            self.parse_actualparitem()
+            pars.append(self.parse_actualparitem())
 
             while self.peek('comma'):
                 self.consume('comma')
-                self.parse_actualparitem()
+                pars.append(self.parse_actualparitem())
+        return pars
 
     def parse_actualparitem(self):
         if self.peek('in'):
             self.consume('in')
             par = self.parse_expression()
             self.quad_gen.genquad('par', par, 'cv', '_')
+            return 'cv'
         else:
             self.consume('inout')
             par = self.consume('id').value
             self.quad_gen.genquad('par', par, 'ref', '_')
+            return 'ref'
 
     def parse_condition(self):
         b = TrueFalse()
@@ -853,8 +866,10 @@ class SyntaxAnal:
                        extracheck=lambda x: True,
                        typestr=None):
         lookup_result = self.table.lookup(name)
-        if lookup_result is None or not (isinstance(lookup_result.entity, typ)
-                                         and extracheck(lookup_result.entity)):
+        types = typ if isinstance(typ, list) else [typ]
+        if lookup_result is None or not (any(
+            [isinstance(lookup_result.entity, t)
+             for t in types]) and extracheck(lookup_result.entity)):
             typestr = typestr if typestr is not None else typ.__name__
             raise CompilationError(
                 pos=self.last_pos,
@@ -869,7 +884,7 @@ class SyntaxAnal:
 
         elif self.peek('id'):
             vid = self.consume('id').value
-            place_of_fn_call = self.parse_idtail()
+            place_of_fn_call = self.parse_idtail(vid)
             if place_of_fn_call is not None:
                 self.ensure_a_valid_function(vid)
                 self.quad_gen.genquad('call', vid, '_', '_')
@@ -889,11 +904,13 @@ class SyntaxAnal:
             typestr='function')
 
     def ensure_a_valid_variable(self, name):
-        self.ensure_a_valid(VariableEntity, name, typestr='variable')
+        self.ensure_a_valid(
+            [VariableEntity, ParameterEntity], name, typestr='variable')
 
-    def parse_idtail(self):
+    def parse_idtail(self, fn_name):
         if self.peek('oparen'):
-            self.parse_actualpars()
+            par_types = self.parse_actualpars()
+            self.ensure_signature(fn_name, par_types)
             retval = self.quad_gen.newtemp()
             self.quad_gen.genquad('par', retval, 'ret', '_')
             return retval

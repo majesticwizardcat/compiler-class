@@ -1,0 +1,9 @@
+// @should_not_compile
+program foo
+    declare x enddeclare
+    procedure foofn(in x, inout y)
+        print x + 24 * y
+    endprocedure
+
+    call foofn(in 4, in 42)
+endprogram
