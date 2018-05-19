@@ -58,9 +58,11 @@ greenPutStrLn output = putStrLn $ "\x1b[32m" ++ output ++ "\x1b[0m"
 redPutStrLn :: String -> IO ()
 redPutStrLn output = putStrLn $ "\x1b[31m" ++ output ++ "\x1b[0m"
 
-checkFile :: FilePath -> IO Bool
-checkFile file = do
-    putStr $ takeFileName file ++ "... "
+bluePutStrLn :: String -> IO ()
+bluePutStrLn output = putStrLn $ "\x1b[36m" ++ output ++ "\x1b[0m"
+
+testAnnotated :: FilePath -> IO Bool
+testAnnotated file = do
     (passes, output) <- passesTest file
 
     if passes
@@ -72,14 +74,21 @@ checkFile file = do
         Nothing -> return ()
     return passes
 
+test :: FilePath -> IO Bool
+test file = do
+    putStr $ takeFileName file ++ "... "
+    hasAnnotations <- shouldBeTested file
+    if hasAnnotations
+    then testAnnotated file
+    else bluePutStrLn "skip" >> return True
+
 main :: IO ()
 main = do
     currentDir <- getCurrentDirectory
     exampleFiles <- listDirectoryAbsolute $ currentDir </> "examples/"
 
     let testFiles = filter (\filename -> takeExtension filename == ".eel") exampleFiles
-    annotatedFiles <- filterM shouldBeTested testFiles
-    oks <- mapM checkFile annotatedFiles
+    oks <- mapM test testFiles
 
     if and oks then exitSuccess
     else exitFailure
