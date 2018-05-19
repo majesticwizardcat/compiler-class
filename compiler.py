@@ -881,7 +881,11 @@ class SyntaxAnal:
             return self.consume('int').value
 
     def ensure_a_valid_function(self, name):
-        self.ensure_a_valid(FunctionEntity, name, typestr='function')
+        self.ensure_a_valid(
+            FunctionEntity,
+            name,
+            extracheck=lambda x: x.type == 'function',
+            typestr='function')
 
     def parse_idtail(self):
         if self.peek('oparen'):
