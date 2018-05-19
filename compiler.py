@@ -947,7 +947,7 @@ class CBackend:
             ret = 'scanf("%%d", &%s);' % q.term0
         else:
             print('Unknown quad type "%s", can\'t translate to C.' % op)
-            exit(1)
+            exit(0)  # C translation errors are OK
 
         return ret
 
