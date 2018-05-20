@@ -1,4 +1,4 @@
-//should compile
+// should compile
 
 program nestedfuncs
 	function f0()
