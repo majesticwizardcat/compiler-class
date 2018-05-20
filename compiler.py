@@ -284,11 +284,26 @@ class Entity(Serializable, Comparable):
     def __init__(self, name):
         self.name = name
 
+    def has_name(self, name):
+        return self.name == name
+
+    def is_a_function(self):
+        return False
+
+    def is_a_procedure(self):
+        return False
+
+    def is_a_variable(self):
+        return False
+
 
 class VariableEntity(Entity):
     def __init__(self, name, offset=None):
         super().__init__(name)
         self.offset = offset
+
+    def is_a_variable(self):
+        return True
 
 
 class FunctionEntity(Entity):
@@ -304,6 +319,16 @@ class FunctionEntity(Entity):
         self.frame_length = frame_length
         self.type = type
 
+    def is_a_function(self):
+        return self.type == 'function'
+
+    def is_a_procedure(self):
+        return self.type == 'procedure'
+
+    def has_signature(self, types):
+        expected = [arg.mode for arg in self.arguments]
+        return types == expected
+
 
 class ConstantEntity(Entity):
     def __init__(self, name, value):
@@ -316,6 +341,9 @@ class ParameterEntity(Entity):
         super().__init__(name)
         self.mode = mode
         self.offset = offset
+
+    def is_a_variable(self):
+        return True
 
 
 class TempVariableEntity(Entity):
@@ -705,16 +733,13 @@ class SyntaxAnal:
         self.quad_gen.genquad('call', name, '_', '_')
 
     def ensure_a_valid_procedure(self, name):
-        self.ensure_a_valid(
-            FunctionEntity,
-            name,
-            extracheck=lambda x: x.type == 'procedure',
-            typestr='procedure')
+        candidate = self.table.lookup(name).entity
+        if not candidate.is_a_procedure():
+            self.error_incorrect_use(name, 'procedure')
 
     def ensure_signature(self, name, types):
         proc = self.table.lookup(name).entity
-        expected = [arg.mode for arg in proc.arguments]
-        if expected != types:
+        if not proc.has_signature(types):
             raise CompilationError(
                 pos=self.last_pos, msg='Invalid signature for "%s".' % name)
 
@@ -860,20 +885,10 @@ class SyntaxAnal:
 
         return factor
 
-    def ensure_a_valid(self,
-                       typ,
-                       name,
-                       extracheck=lambda x: True,
-                       typestr=None):
-        lookup_result = self.table.lookup(name)
-        types = typ if isinstance(typ, list) else [typ]
-        if lookup_result is None or not (any(
-            [isinstance(lookup_result.entity, t)
-             for t in types]) and extracheck(lookup_result.entity)):
-            typestr = typestr if typestr is not None else typ.__name__
-            raise CompilationError(
-                pos=self.last_pos,
-                msg='Using "%s" as a %s but it\'s not one.' % (name, typestr))
+    def error_incorrect_use(self, name, as_type):
+        raise CompilationError(
+            pos=self.last_pos,
+            msg='Using "%s" as a %s but it\'s not one.' % (name, as_type))
 
     def parse_factor(self):
         if self.peek('oparen'):
@@ -896,15 +911,14 @@ class SyntaxAnal:
             return self.consume('int').value
 
     def ensure_a_valid_function(self, name):
-        self.ensure_a_valid(
-            FunctionEntity,
-            name,
-            extracheck=lambda x: x.type == 'function',
-            typestr='function')
+        candidate = self.table.lookup(name).entity
+        if not candidate.is_a_function():
+            self.error_incorrect_use(name, 'function')
 
     def ensure_a_valid_variable(self, name):
-        self.ensure_a_valid(
-            [VariableEntity, ParameterEntity], name, typestr='variable')
+        candidate = self.table.lookup(name).entity
+        if not candidate.is_a_variable():
+            self.error_incorrect_use(name, 'variable')
 
     def parse_idtail(self, fn_name):
         if self.peek('oparen'):
