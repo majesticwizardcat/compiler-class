@@ -175,5 +175,10 @@ class SymbolTableTest(unittest.TestCase):
         self.assertEqual(last.offset, 12)
 
 
+class FinalCodeTest(unittest.TestCase):
+    def test_fde_helpers(self):
+        pass
+
+
 if __name__ == '__main__':
     unittest.main()

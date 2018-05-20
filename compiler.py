@@ -488,7 +488,7 @@ class FinalGen:
 
             return 'lw $t%s, -%d($sp)' % reg, lookup_res.entity.offset
         else:
-            gnlvcode(var)
+            self.gnlvcode(var)
 
             if isinstance(lookup_res.entity, ParameterEntity) and \
                     lookup_res.entity.mode == 'ref':
@@ -508,7 +508,7 @@ class FinalGen:
 
             return 'sw $t%s, -%d($sp)' % reg, lookup_res.entity.offset
         else:
-            gnlvcode(var)
+            self.gnlvcode(var)
 
             if isinstance(lookup_res.entity, ParameterEntity) and \
                     lookup_res.entity.mode == 'ref':
