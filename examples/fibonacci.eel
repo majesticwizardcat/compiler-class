@@ -1,3 +1,4 @@
+// @should_not_compile
 /* This is a program that calculates the fibonacci sequence
 using different methods
 */

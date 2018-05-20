@@ -1,3 +1,5 @@
+// @should_not_compile
+// should complain about signature
 program example2
 declare x,y,z enddeclare
 

@@ -6,6 +6,7 @@ import re
 import subprocess
 import sys
 from collections import defaultdict, namedtuple
+from pprint import pformat
 
 INVALID_TOKENS = [
     (
@@ -269,11 +270,154 @@ class TrueFalse:
         self.false = false
 
 
+class Serializable:
+    def __repr__(self):
+        return pformat(self.__dict__)
+
+
+class Comparable:
+    def __eq__(self, other):
+        return self.__dict__ == other.__dict__
+
+
+class Entity(Serializable, Comparable):
+    def __init__(self, name):
+        self.name = name
+
+
+class VariableEntity(Entity):
+    def __init__(self, name, offset=None):
+        super().__init__(name)
+        self.offset = offset
+
+
+class FunctionEntity(Entity):
+    def __init__(self,
+                 name,
+                 start_quad,
+                 arguments=None,
+                 frame_length=None,
+                 type='function'):
+        super().__init__(name)
+        self.start_quad = start_quad
+        self.arguments = arguments if arguments is not None else []
+        self.frame_length = frame_length
+        self.type = type
+
+
+class ConstantEntity(Entity):
+    def __init__(self, name, value):
+        super().__init__(name)
+        self.value = value
+
+
+class ParameterEntity(Entity):
+    def __init__(self, name, mode, offset):
+        super().__init__(name)
+        self.mode = mode
+        self.offset = offset
+
+
+class TempVariableEntity(Entity):
+    def __init__(self, name, offset=None):
+        super().__init__(name)
+        self.offset = offset
+
+
+class Scope(Serializable, Comparable):
+    def __init__(self, nesting_level, entities=None):
+        self.nesting_level = nesting_level
+        self.entities = [] if entities is None else entities
+
+
+class Argument(Serializable, Comparable):
+    def __init__(self, name, mode):
+        self.name = name
+        self.mode = mode
+
+
+class SymbolTable:
+    def __init__(self):
+        self.scopes = []
+
+    def create_scope(self):
+        params = []
+        if isinstance(self.last_entity(), FunctionEntity):
+            params = [
+                ParameterEntity(arg.name, arg.mode, 12 + i * 4)
+                for i, arg in enumerate(self.last_entity().arguments)
+            ]
+        self.scopes.append(Scope(len(self.scopes)))
+        self.scopes[-1].entities += params
+
+        #print('scopes now', self.scopes)
+        #print('entities now', self.scopes[-1].entities)
+
+    def destroy_scope(self):
+        last_scope = self.scopes.pop()
+        if len(self.scopes) > 0:
+            if not isinstance(self.last_entity(), FunctionEntity):
+                raise Exception
+            self.last_entity().frame_length = 12 + len(last_scope.entities) * 4
+
+    def add_entity(self, entity):
+        if hasattr(entity, 'offset'):
+            entity.offset = self.last_entity().offset + 4 \
+            if self.last_entity() is not None else 12
+
+        self.scopes[-1].entities.append(entity)
+        #print('add_entity(): entities now', self.scopes[-1].entities)
+
+    def add_argument(self, arg):
+        head = self.last_entity()
+        if not isinstance(head, FunctionEntity):
+            raise ValueError
+        head.arguments.append(arg)
+
+    def last_entity(self):
+        try:
+            return self.scopes[-1].entities[-1]
+        except:
+            return None
+
+    def am_i_inside_function(self):
+        if len(self.scopes) > 1:
+            parent_last = self.scopes[-2].entities[-1]
+            return isinstance(
+                parent_last, FunctionEntity) and parent_last.type == 'function'
+        return False
+
+    def lookup(self, name, scopes=None):
+        scopes = self.scopes if scopes is None else scopes
+        for scope in self.scopes[::-1]:
+            for entity in scope.entities[::-1]:
+                try:
+                    if entity.name == name:
+                        return namedtuple('LookupResult',
+                                          ['entity', 'nesting_level'])(
+                                              entity, scope.nesting_level)
+                except AttributeError:
+                    pass
+        return None
+
+    def lookup_on_current_scope(self, name):
+        return self.lookup(name, scopes=[self.scopes[-1]])
+
+
 class SyntaxAnal:
     def __init__(self, tokens):
         self.tokens = tokens
         self.quad_gen = QuadGenerator()
         self.exits = []
+        self.table = SymbolTable()
+        self.last_pos = None
+        self.seen_return = False
+        self.inside_repeat = 0
+
+    def ensure_we_do_not_redeclare(self, name):
+        if self.table.lookup_on_current_scope(name) is not None:
+            raise CompilationError(
+                pos=self.last_pos, msg='Redeclaring %s is not allowed.' % name)
 
     def check_syntax(self):
         self.parse_program()
@@ -287,7 +431,9 @@ class SyntaxAnal:
         #print('Trying to cunsume %s' % type)
         if self.peek(type):
             #print('consumed %s ' % type)
-            return self.tokens.pop(0)
+            tk = self.tokens.pop(0)
+            self.last_pos = tk.pos
+            return tk
         else:
             raise SyntaxAnalyzerError(
                 pos=self.tokens[0].pos,
@@ -310,9 +456,19 @@ class SyntaxAnal:
         self.consume('endprogram')
 
     def parse_block(self):
+        self.table.create_scope()
         self.parse_declarations()
         self.parse_subprograms()
         self.parse_statements()
+        self.table.destroy_scope()
+
+        if isinstance(self.table.last_entity(), FunctionEntity):
+            if self.table.last_entity(
+            ).type == 'function' and not self.seen_return:
+                raise CompilationError(
+                    pos=self.last_pos,
+                    msg='End of function block and no return found.',
+                    suggestion='Did you forget to return?')
 
     def parse_declarations(self):
         if self.peek('declare'):
@@ -323,12 +479,16 @@ class SyntaxAnal:
     def parse_varlist(self):
         if self.peek('id'):
             vid = self.consume('id').value
+            self.ensure_we_do_not_redeclare(vid)
             self.quad_gen.genquad('int', vid, '_', '_')
+            self.table.add_entity(VariableEntity(vid))
 
             while self.peek('comma'):
                 self.consume('comma')
                 vid = self.consume('id').value
+                self.ensure_we_do_not_redeclare(vid)
                 self.quad_gen.genquad('int', vid, '_', '_')
+                self.table.add_entity(VariableEntity(vid))
 
     def parse_subprograms(self):
         while self.peek('procedure') or self.peek('function'):
@@ -338,6 +498,10 @@ class SyntaxAnal:
         if self.peek('procedure'):
             self.consume('procedure')
             name = self.consume('id').value
+            self.ensure_we_do_not_redeclare(name)
+            self.table.add_entity(
+                FunctionEntity(
+                    name, self.quad_gen.nextquad(), type='procedure'))
             self.quad_gen.genquad('begin_block', name, '_', '_')
             self.parse_procorfuncbody()
             self.quad_gen.genquad('end_block', name, '_', '_')
@@ -345,6 +509,10 @@ class SyntaxAnal:
         else:
             self.consume('function')
             name = self.consume('id').value
+            self.ensure_we_do_not_redeclare(name)
+            self.seen_return = False
+            self.table.add_entity(
+                FunctionEntity(name, self.quad_gen.nextquad()))
             self.quad_gen.genquad('begin_block', name, '_', '_')
             self.parse_procorfuncbody()
             self.quad_gen.genquad('end_block', name, '_', '_')
@@ -368,12 +536,16 @@ class SyntaxAnal:
                 self.parse_formalparitem()
 
     def parse_formalparitem(self):
+        mode = None
         if self.peek('in'):
             self.consume('in')
+            mode = 'cv'
         else:
             self.consume('inout')
+            mode = 'ref'
 
-        self.consume('id')
+        name = self.consume('id').value
+        self.table.add_argument(Argument(name, mode))
 
     def parse_statements(self):
         self.parse_statement()
@@ -435,6 +607,8 @@ class SyntaxAnal:
         self.consume('repeat')
         in_repeat = self.quad_gen.nextquad()
 
+        self.inside_repeat += 1
+
         old_exits = self.exits
         self.exits = []
         self.parse_statements()
@@ -444,9 +618,15 @@ class SyntaxAnal:
         self.exits = old_exits
 
         self.consume('endrepeat')
+        self.inside_repeat -= 1
 
     def parse_exitstat(self):
         self.consume('exit')
+        if self.inside_repeat < 1:
+            raise CompilationError(
+                pos=self.last_pos,
+                msg='Found exit outside a repeat block.',
+                suggestion='Remove the exit?')
         self.exits.append(self.quad_gen.nextquad())
         self.quad_gen.genquad('jump', '_', '_', '_')
 
@@ -519,13 +699,36 @@ class SyntaxAnal:
     def parse_callstat(self):
         self.consume('call')
         name = self.consume('id').value
-        self.parse_actualpars()
+        self.ensure_a_valid_procedure(name)
+        par_types = self.parse_actualpars()
+        self.ensure_signature(name, par_types)
         self.quad_gen.genquad('call', name, '_', '_')
+
+    def ensure_a_valid_procedure(self, name):
+        self.ensure_a_valid(
+            FunctionEntity,
+            name,
+            extracheck=lambda x: x.type == 'procedure',
+            typestr='procedure')
+
+    def ensure_signature(self, name, types):
+        proc = self.table.lookup(name).entity
+        expected = [arg.mode for arg in proc.arguments]
+        if expected != types:
+            raise CompilationError(
+                pos=self.last_pos, msg='Invalid signature for "%s".' % name)
 
     def parse_returnstat(self):
         self.consume('return')
+        self.seen_return = True
         exp = self.parse_expression()
         self.quad_gen.genquad('retv', exp, '_', '_')
+
+        if not self.table.am_i_inside_function():
+            raise CompilationError(
+                pos=self.last_pos,
+                msg='Found stray return outside function block.',
+                suggestion='Remove the stray return.')
 
     def parse_printstat(self):
         self.consume('print')
@@ -539,26 +742,31 @@ class SyntaxAnal:
 
     def parse_actualpars(self):
         self.consume('oparen')
-        self.parse_actualparlist()
+        pars = self.parse_actualparlist()
         self.consume('cparen')
+        return pars
 
     def parse_actualparlist(self):
+        pars = []
         if self.peek('in') or self.peek('inout'):
-            self.parse_actualparitem()
+            pars.append(self.parse_actualparitem())
 
             while self.peek('comma'):
                 self.consume('comma')
-                self.parse_actualparitem()
+                pars.append(self.parse_actualparitem())
+        return pars
 
     def parse_actualparitem(self):
         if self.peek('in'):
             self.consume('in')
             par = self.parse_expression()
             self.quad_gen.genquad('par', par, 'cv', '_')
+            return 'cv'
         else:
             self.consume('inout')
             par = self.consume('id').value
             self.quad_gen.genquad('par', par, 'ref', '_')
+            return 'ref'
 
     def parse_condition(self):
         b = TrueFalse()
@@ -652,6 +860,21 @@ class SyntaxAnal:
 
         return factor
 
+    def ensure_a_valid(self,
+                       typ,
+                       name,
+                       extracheck=lambda x: True,
+                       typestr=None):
+        lookup_result = self.table.lookup(name)
+        types = typ if isinstance(typ, list) else [typ]
+        if lookup_result is None or not (any(
+            [isinstance(lookup_result.entity, t)
+             for t in types]) and extracheck(lookup_result.entity)):
+            typestr = typestr if typestr is not None else typ.__name__
+            raise CompilationError(
+                pos=self.last_pos,
+                msg='Using "%s" as a %s but it\'s not one.' % (name, typestr))
+
     def parse_factor(self):
         if self.peek('oparen'):
             self.consume('oparen')
@@ -661,24 +884,38 @@ class SyntaxAnal:
 
         elif self.peek('id'):
             vid = self.consume('id').value
-            ret = self.parse_idtail()
-            if ret != '':
+            place_of_fn_call = self.parse_idtail(vid)
+            if place_of_fn_call is not None:
                 self.quad_gen.genquad('call', vid, '_', '_')
-                return ret
+                return place_of_fn_call
             else:
+                self.ensure_a_valid_variable(vid)
                 return vid
 
         else:
             return self.consume('int').value
 
-    def parse_idtail(self):
+    def ensure_a_valid_function(self, name):
+        self.ensure_a_valid(
+            FunctionEntity,
+            name,
+            extracheck=lambda x: x.type == 'function',
+            typestr='function')
+
+    def ensure_a_valid_variable(self, name):
+        self.ensure_a_valid(
+            [VariableEntity, ParameterEntity], name, typestr='variable')
+
+    def parse_idtail(self, fn_name):
         if self.peek('oparen'):
-            self.parse_actualpars()
+            par_types = self.parse_actualpars()
+            self.ensure_a_valid_function(fn_name)
+            self.ensure_signature(fn_name, par_types)
             retval = self.quad_gen.newtemp()
             self.quad_gen.genquad('par', retval, 'ret', '_')
             return retval
 
-        return ''
+        return None
 
     def parse_relationaloper(self):
         if self.peek('eq'):
@@ -760,7 +997,7 @@ class CBackend:
             ret = 'scanf("%%d", &%s);' % q.term0
         else:
             print('Unknown quad type "%s", can\'t translate to C.' % op)
-            exit(1)
+            exit(0)  # C translation errors are OK
 
         return ret
 
@@ -778,30 +1015,31 @@ class CBackend:
         return ['\tint %s;' % ', '.join(temps | declared_variables)]
 
 
-parser = argparse.ArgumentParser()
-parser.add_argument('source_file')
-args = parser.parse_args()
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('source_file')
+    args = parser.parse_args()
 
-basename = os.path.basename(args.source_file)
-sourcename = basename.split('.')[0]
-intermediate_filename = '%s.eeli' % sourcename
-c_filename = '%s.c' % sourcename
+    basename = os.path.basename(args.source_file)
+    sourcename = basename.split('.')[0]
+    intermediate_filename = '%s.eeli' % sourcename
+    c_filename = '%s.c' % sourcename
 
-with open(args.source_file, 'r') as source_file:
-    source = source_file.read()
-try:
-    tokens = Lexer(source).tokenize()
-    syntax_anal = SyntaxAnal(tokens)
-    syntax_anal.check_syntax()
-    cbackend = CBackend(syntax_anal.quad_gen)
-    print('Putting intermediate code in [%s]...' % intermediate_filename)
-    with open(intermediate_filename, 'w') as intermediate_file:
-        intermediate_file.write(str(syntax_anal.quad_gen))
-    print('Putting C code in [%s]...' % intermediate_filename)
-    with open(c_filename, 'w') as c_file:
-        c_file.write(cbackend.convert())
-    print('Compiling C code [%s] to [%s]...' % (c_filename, sourcename))
-    subprocess.call(['cc', '-o', sourcename, c_filename])
-except CompilationError as e:
-    print('%s:%s\n' % (args.source_file, str(e)))
-    sys.exit(1)
+    with open(args.source_file, 'r') as source_file:
+        source = source_file.read()
+    try:
+        tokens = Lexer(source).tokenize()
+        syntax_anal = SyntaxAnal(tokens)
+        syntax_anal.check_syntax()
+        cbackend = CBackend(syntax_anal.quad_gen)
+        print('Putting intermediate code in [%s]...' % intermediate_filename)
+        with open(intermediate_filename, 'w') as intermediate_file:
+            intermediate_file.write(str(syntax_anal.quad_gen))
+        print('Putting C code in [%s]...' % intermediate_filename)
+        with open(c_filename, 'w') as c_file:
+            c_file.write(cbackend.convert())
+        #print('Compiling C code [%s] to [%s]...' % (c_filename, sourcename))
+        #subprocess.call(['cc', '-o', sourcename, c_filename])
+    except CompilationError as e:
+        print('%s:%s\n' % (args.source_file, str(e)))
+        sys.exit(1)

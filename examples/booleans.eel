@@ -1,3 +1,4 @@
+// @should_compile
 program booleans
    declare a, b enddeclare
 

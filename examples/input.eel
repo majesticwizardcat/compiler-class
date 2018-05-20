@@ -1,3 +1,4 @@
+// @should_compile
 program inputprogram
     declare foo enddeclare
     input foo;

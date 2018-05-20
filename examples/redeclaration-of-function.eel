@@ -1,0 +1,10 @@
+// @should_not_compile
+program foo
+    function baz()
+        return 41
+    endfunction
+
+    function baz()
+        return 42
+    endfunction
+endprogram

@@ -1,0 +1,4 @@
+// @should_not_compile
+program foo
+    return 12
+endprogram

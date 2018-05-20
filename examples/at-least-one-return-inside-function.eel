@@ -1,0 +1,8 @@
+// @should_not_compile
+program testcase
+    declare a enddeclare
+    function foo()
+    endfunction
+
+    a := foo()
+endprogram

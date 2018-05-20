@@ -1,0 +1,6 @@
+// @should_not_compile
+program testcase
+    procedure foo()
+        return 42
+    endprocedure
+endprogram

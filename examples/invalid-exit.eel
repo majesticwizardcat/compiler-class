@@ -1,6 +1,5 @@
-// @should_compile
-// SHOULD PRINT 6
-program example3
+// @should_not_compile
+program invalidexit
    declare a enddeclare
     a := 0;
    repeat
@@ -11,8 +10,6 @@ program example3
         endif
     endrepeat;
     print a;
-    exit;
-    exit;
-    exit;
    endrepeat;
+   exit;
 endprogram
