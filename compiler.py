@@ -886,7 +886,6 @@ class SyntaxAnal:
             vid = self.consume('id').value
             place_of_fn_call = self.parse_idtail(vid)
             if place_of_fn_call is not None:
-                self.ensure_a_valid_function(vid)
                 self.quad_gen.genquad('call', vid, '_', '_')
                 return place_of_fn_call
             else:
@@ -910,6 +909,7 @@ class SyntaxAnal:
     def parse_idtail(self, fn_name):
         if self.peek('oparen'):
             par_types = self.parse_actualpars()
+            self.ensure_a_valid_function(fn_name)
             self.ensure_signature(fn_name, par_types)
             retval = self.quad_gen.newtemp()
             self.quad_gen.genquad('par', retval, 'ret', '_')
