@@ -1,4 +1,4 @@
-// should not compile
+// should compile
 /* Comment testing
 
 /* <- this should work
@@ -10,33 +10,7 @@
 program /* comment between tokens */ weird
     declare x, y, z enddeclare
 
-    procedure procedure1(in a, inout b, inout three) // procedure1 should work as procedure name
-        declare heyhey, function0 enddeclare // function0 should work as id
-
-        // checking switch out
-        switch 42
-            case 42:
-                heyhey := 42;
-                function0 := func0(in heyhey)
-            case 69:
-                heyhey := 69;
-                function0 := 11111;
-                call function1()
-            case 9999:
-                heyhey := 9999;
-                    if 1 <> 1 then
-                        return -1
-                    endif
-        endswitch;
-
-        return a + b * three / function0
-    endprocedure
-
-    function func0(in var)
-        return var * function1()
-    endfunction
-
-    function funtion1()
+    function function1()
         declare index, result enddeclare
 
         // time to forcase:
@@ -58,11 +32,34 @@ program /* comment between tokens */ weird
 
             when index = 10:
                 result := 10;
-                exit
-
         endforcase;
 
         return result
+    endfunction
+
+    function func0(in var)
+        return var * function1()
+    endfunction
+
+    function procedure1(in a, inout b, inout three) // procedure1 should work as procedure name
+        declare heyhey, function0 enddeclare // function0 should work as id
+
+        // checking switch out
+        switch 42
+            case 42:
+                heyhey := 42;
+                function0 := func0(in heyhey)
+            case 69:
+                heyhey := 69;
+                function0 := 11111;
+            case 9999:
+                heyhey := 9999;
+                    if 1 <> 1 then
+                        return -1
+                    endif
+        endswitch;
+
+        return a + b * three / function0
     endfunction
     
     x := 1;
