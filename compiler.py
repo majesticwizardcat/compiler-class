@@ -525,7 +525,7 @@ class SyntaxAnal:
         self.exits = []
         self.table = SymbolTable()
         self.last_pos = None
-        self.seen_return = False
+        self.returns_of_scopes = []
         self.inside_repeat = 0
 
     def ensure_we_do_not_redeclare(self, name):
@@ -576,14 +576,6 @@ class SyntaxAnal:
         self.parse_statements()
         self.table.destroy_scope()
 
-        if isinstance(self.table.last_entity(), FunctionEntity):
-            if self.table.last_entity(
-            ).type == 'function' and not self.seen_return:
-                raise CompilationError(
-                    pos=self.last_pos,
-                    msg='End of function block and no return found.',
-                    suggestion='Did you forget to return?')
-
     def parse_declarations(self):
         if self.peek('declare'):
             self.consume('declare')
@@ -624,13 +616,20 @@ class SyntaxAnal:
             self.consume('function')
             name = self.consume('id').value
             self.ensure_we_do_not_redeclare(name)
-            self.seen_return = False
             self.table.add_entity(
                 FunctionEntity(name, self.quad_gen.nextquad()))
+            self.returns_of_scopes.append([])
             self.quad_gen.genquad('begin_block', name, '_', '_')
             self.parse_procorfuncbody()
             self.quad_gen.genquad('end_block', name, '_', '_')
             self.consume('endfunction')
+
+            our_returns = self.returns_of_scopes.pop()
+            if len(our_returns) < 1:
+                raise CompilationError(
+                    pos=self.last_pos,
+                    msg='End of function block and no return found.',
+                    suggestion='Did you forget to return?')
 
     def parse_procorfuncbody(self):
         self.parse_formalpars()
@@ -829,7 +828,6 @@ class SyntaxAnal:
 
     def parse_returnstat(self):
         self.consume('return')
-        self.seen_return = True
         exp = self.parse_expression()
         self.quad_gen.genquad('retv', exp, '_', '_')
 
@@ -838,6 +836,7 @@ class SyntaxAnal:
                 pos=self.last_pos,
                 msg='Found stray return outside function block.',
                 suggestion='Remove the stray return.')
+        self.returns_of_scopes[-1].append('return')
 
     def parse_printstat(self):
         self.consume('print')
