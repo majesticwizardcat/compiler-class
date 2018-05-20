@@ -225,10 +225,11 @@ Quad = namedtuple('quad', ['id', 'op', 'term0', 'term1', 'target'])
 
 
 class QuadGenerator:
-    def __init__(self):
+    def __init__(self, table=None):
         self.quad_id = 0
         self.temp_id = 0
         self.quad_list = []
+        self.table = table
 
     def nextquad(self):
         return self.quad_id
@@ -243,9 +244,11 @@ class QuadGenerator:
                 target=target))
         self.quad_id += 1
 
-    def newtemp(self):
+    def newtemp(self, table=None):
         temp = 'T_%d' % self.temp_id
         self.temp_id += 1
+        if self.table is not None:
+            self.table.add_entity(TempVariableEntity(temp))
         return temp
 
     def backpatch(self, lst, target):
@@ -393,11 +396,16 @@ class SymbolTable:
 
     def add_entity(self, entity):
         if hasattr(entity, 'offset'):
-            entity.offset = self.last_entity().offset + 4 \
-            if self.last_entity() is not None else 12
+            entity.offset = self.find_closest_on_current_scope_with_offset().offset + 4 \
+            if self.find_closest_on_current_scope_with_offset() is not None else 12
 
         self.scopes[-1].entities.append(entity)
         #print('add_entity(): entities now', self.scopes[-1].entities)
+
+    def find_closest_on_current_scope_with_offset(self):
+        for entity in self.scopes[-1].entities[::-1]:
+            if hasattr(entity, 'offset') and entity.offset is not None:
+                return entity
 
     def add_argument(self, arg):
         head = self.last_entity()
@@ -521,9 +529,9 @@ class FinalGen:
 class SyntaxAnal:
     def __init__(self, tokens):
         self.tokens = tokens
-        self.quad_gen = QuadGenerator()
         self.exits = []
         self.table = SymbolTable()
+        self.quad_gen = QuadGenerator(table=self.table)
         self.last_pos = None
         self.returns_of_scopes = []
         self.inside_repeat = 0
