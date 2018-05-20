@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 #Karantias Konstantinos 2454 cse32454 Goulioumis Ioannis 2232 cse32232
 import argparse
+import operator
 import os
 import re
 import subprocess
 import sys
 from collections import defaultdict, namedtuple
+from functools import reduce
 from pprint import pformat
 
 INVALID_TOKENS = [
@@ -468,10 +470,15 @@ class SymbolTable:
     def get_current_nesting_level(self):
         return max(0, len(self.scopes) - 1)
 
+    def get_cause_of_birth(self):
+        return self.scopes[-2].entities[-1]
+
 
 class FinalGen:
-    def __init__(self, table):
+    def __init__(self, table, quad_gen=None):
         self.table = table
+        self.quad_gen = quad_gen
+        self.generated = []
 
     def gnlvcode(self, var):
         ret = []
@@ -525,6 +532,17 @@ class FinalGen:
         lookup_res = self.table.lookup(var)
         return self.store_load_rv(reg, var, lookup_res, 'sw')
 
+    def generate_block(self):
+        fn_entity = self.table.get_cause_of_birth()
+        start_quad = fn_entity.start_quad
+        quads = self.quad_gen.quad_list[start_quad:]
+        self.generated.append(
+            reduce(operator.add,
+                   (self.translate_quad(quad) for quad in quads)))
+
+    def translate_quad(self, quad):
+        return []
+
 
 class SyntaxAnal:
     def __init__(self, tokens):
@@ -535,6 +553,7 @@ class SyntaxAnal:
         self.last_pos = None
         self.returns_of_scopes = []
         self.inside_repeat = 0
+        self.final = FinalGen(self.table, self.quad_gen)
 
     def ensure_we_do_not_redeclare(self, name):
         if self.table.lookup_on_current_scope(name) is not None:
@@ -582,6 +601,8 @@ class SyntaxAnal:
         self.parse_declarations()
         self.parse_subprograms()
         self.parse_statements()
+
+        self.final.generate_block()
         self.table.destroy_scope()
 
     def parse_declarations(self):
