@@ -1,6 +1,8 @@
 import unittest
-from compiler import (Argument, FunctionEntity, ParameterEntity, Scope,
-                      SymbolTable, TempVariableEntity, VariableEntity)
+from compiler import (Argument, FinalGen, FunctionEntity, LookupResult,
+                      ParameterEntity, Scope, SymbolTable, TempVariableEntity,
+                      VariableEntity)
+from unittest.mock import MagicMock
 
 
 class SymbolTableTest(unittest.TestCase):
@@ -173,6 +175,334 @@ class SymbolTableTest(unittest.TestCase):
         self.assertEqual(len(tbl.scopes[-1].entities), 1)
         self.assertEqual(last.name, "varfoo2")
         self.assertEqual(last.offset, 12)
+
+
+class FinalCodeHelpersTest(unittest.TestCase):
+    def test_gnlvcode_nesting_level_1(self):
+        tbl = SymbolTable()
+        tbl.get_current_nesting_level = MagicMock(return_value=1)
+        tbl.lookup = MagicMock(
+            return_value=LookupResult(VariableEntity('var0', 4), 1))
+
+        gen = FinalGen(tbl)
+
+        self.assertEqual(
+            gen.gnlvcode('var0'), ['lw $t0, -4($sp)', 'add $t0, $t0, -4'])
+        tbl.get_current_nesting_level.assert_called_once()
+        tbl.lookup.assert_called_once_with('var0')
+
+    def test_gnlvcode_nesting_level_2(self):
+        tbl = SymbolTable()
+        tbl.get_current_nesting_level = MagicMock(return_value=2)
+        tbl.lookup = MagicMock(
+            return_value=LookupResult(VariableEntity('var0', 4), 1))
+
+        gen = FinalGen(tbl)
+
+        self.assertEqual(
+            gen.gnlvcode('var0'),
+            ['lw $t0, -4($sp)', 'lw $t0, -4($t0)', 'add $t0, $t0, -4'])
+        tbl.get_current_nesting_level.assert_called_once()
+        tbl.lookup.assert_called_once_with('var0')
+
+    def test_gnlvcode_nesting_level_3(self):
+        tbl = SymbolTable()
+        tbl.get_current_nesting_level = MagicMock(return_value=3)
+        tbl.lookup = MagicMock(
+            return_value=LookupResult(VariableEntity('var0', 4), 1))
+
+        gen = FinalGen(tbl)
+
+        self.assertEqual(
+            gen.gnlvcode('var0'), [
+                'lw $t0, -4($sp)', 'lw $t0, -4($t0)', 'lw $t0, -4($t0)',
+                'add $t0, $t0, -4'
+            ])
+        tbl.get_current_nesting_level.assert_called_once()
+        tbl.lookup.assert_called_once_with('var0')
+
+    def test_loadvr_constant(self):
+        tbl = SymbolTable()
+        tbl.get_current_nesting_level = MagicMock()
+        tbl.lookup = MagicMock()
+
+        gen = FinalGen(tbl)
+
+        self.assertEqual(gen.loadvr('42', 0), ['li $t0, 42'])
+        tbl.get_current_nesting_level.assert_not_called()
+        tbl.lookup.assert_not_called()
+
+    def test_loadvr_global_var(self):
+        tbl = SymbolTable()
+        tbl.get_current_nesting_level = MagicMock(return_value=0)
+        tbl.lookup = MagicMock(
+            return_value=LookupResult(VariableEntity('var0', 4), 0))
+
+        gen = FinalGen(tbl)
+
+        self.assertEqual(gen.loadvr('var0', 0), ['lw $t0, -4($s0)'])
+        tbl.get_current_nesting_level.assert_called_once()
+        tbl.lookup.assert_called_once_with('var0')
+
+    def test_loadvr_same_nesting_level_local(self):
+        tbl = SymbolTable()
+        tbl.get_current_nesting_level = MagicMock(return_value=1)
+        tbl.lookup = MagicMock(
+            return_value=LookupResult(VariableEntity('local_var0', 4), 1))
+
+        gen = FinalGen(tbl)
+
+        self.assertEqual(gen.loadvr('local_var0', 0), ['lw $t0, -4($sp)'])
+        tbl.get_current_nesting_level.assert_called_once()
+        tbl.lookup.assert_called_once_with('local_var0')
+
+    def test_loadvr_same_nesting_level_in_parameter(self):
+        tbl = SymbolTable()
+        tbl.get_current_nesting_level = MagicMock(return_value=1)
+        tbl.lookup = MagicMock(
+            return_value=LookupResult(ParameterEntity('in_par0', 'cv', 4), 1))
+
+        gen = FinalGen(tbl)
+
+        self.assertEqual(gen.loadvr('in_par0', 0), ['lw $t0, -4($sp)'])
+        tbl.get_current_nesting_level.assert_called_once()
+        tbl.lookup.assert_called_once_with('in_par0')
+
+    def test_loadvr_same_nesting_level_temp(self):
+        tbl = SymbolTable()
+        tbl.get_current_nesting_level = MagicMock(return_value=1)
+        tbl.lookup = MagicMock(
+            return_value=LookupResult(TempVariableEntity('temp_var0', 4), 1))
+
+        gen = FinalGen(tbl)
+
+        self.assertEqual(gen.loadvr('temp_var0', 0), ['lw $t0, -4($sp)'])
+        tbl.get_current_nesting_level.assert_called_once()
+        tbl.lookup.assert_called_once_with('temp_var0')
+
+    def test_loadvr_same_nesting_level_inout_parameter(self):
+        tbl = SymbolTable()
+        tbl.get_current_nesting_level = MagicMock(return_value=1)
+        tbl.lookup = MagicMock(
+            return_value=LookupResult(
+                ParameterEntity('inout_par0', 'ref', 4), 1))
+
+        gen = FinalGen(tbl)
+
+        self.assertEqual(
+            gen.loadvr('inout_par0', 0), ['lw $t0, -4($sp)', 'lw $t0, ($t0)'])
+        tbl.get_current_nesting_level.assert_called_once()
+        tbl.lookup.assert_called_once_with('inout_par0')
+
+    def test_loadvr_one_diff_nesting_level_local(self):
+        tbl = SymbolTable()
+        tbl.get_current_nesting_level = MagicMock(return_value=2)
+        tbl.lookup = MagicMock(
+            return_value=LookupResult(VariableEntity('local_var0', 4), 1))
+
+        gen = FinalGen(tbl)
+
+        self.assertEqual(
+            gen.loadvr('local_var0', 1),
+            gen.gnlvcode('local_var0') + ['lw $t1, ($t0)'])
+
+    def test_loadvr_one_diff_nesting_level_in_parameter(self):
+        tbl = SymbolTable()
+        tbl.get_current_nesting_level = MagicMock(return_value=2)
+        tbl.lookup = MagicMock(
+            return_value=LookupResult(ParameterEntity('in_par0', 'cv', 4), 1))
+
+        gen = FinalGen(tbl)
+
+        self.assertEqual(
+            gen.loadvr('in_par0', 1),
+            gen.gnlvcode('in_par0') + ['lw $t1, ($t0)'])
+
+    def test_loadvr_one_diff_nesting_level_inout_parameter(self):
+        tbl = SymbolTable()
+        tbl.get_current_nesting_level = MagicMock(return_value=2)
+        tbl.lookup = MagicMock(
+            return_value=LookupResult(
+                ParameterEntity('inout_par0', 'ref', 4), 1))
+
+        gen = FinalGen(tbl)
+
+        self.assertEqual(
+            gen.loadvr('inout_par0', 1),
+            gen.gnlvcode('inout_par0') + ['lw $t0, ($t0)', 'lw $t1, ($t0)'])
+
+    def test_loadvr_smaller_nesting_level_local(self):
+        tbl = SymbolTable()
+        tbl.get_current_nesting_level = MagicMock(return_value=3)
+        tbl.lookup = MagicMock(
+            return_value=LookupResult(VariableEntity('local_var0', 4), 1))
+
+        gen = FinalGen(tbl)
+
+        self.assertEqual(
+            gen.loadvr('local_var0', 1),
+            gen.gnlvcode('local_var0') + ['lw $t1, ($t0)'])
+
+    def test_loadvr_smaller_nesting_level_in_parameter(self):
+        tbl = SymbolTable()
+        tbl.get_current_nesting_level = MagicMock(return_value=3)
+        tbl.lookup = MagicMock(
+            return_value=LookupResult(ParameterEntity('in_par0', 'cv', 4), 1))
+
+        gen = FinalGen(tbl)
+
+        self.assertEqual(
+            gen.loadvr('in_par0', 1),
+            gen.gnlvcode('in_par0') + ['lw $t1, ($t0)'])
+
+    def test_loadvr_smaller_nesting_level_inout_parameter(self):
+        tbl = SymbolTable()
+        tbl.get_current_nesting_level = MagicMock(return_value=3)
+        tbl.lookup = MagicMock(
+            return_value=LookupResult(
+                ParameterEntity('inout_par0', 'ref', 4), 1))
+
+        gen = FinalGen(tbl)
+
+        self.assertEqual(
+            gen.loadvr('inout_par0', 1),
+            gen.gnlvcode('inout_par0') + ['lw $t0, ($t0)', 'lw $t1, ($t0)'])
+
+    def test_storerv_global_var(self):
+        tbl = SymbolTable()
+        tbl.get_current_nesting_level = MagicMock(return_value=0)
+        tbl.lookup = MagicMock(
+            return_value=LookupResult(VariableEntity('global_var0', 4), 0))
+
+        gen = FinalGen(tbl)
+
+        self.assertEqual(gen.storerv(2, 'global_var0'), ['sw $t2, -4($s0)'])
+        tbl.get_current_nesting_level.assert_called_once()
+        tbl.lookup.assert_called_once_with('global_var0')
+
+    def test_storerv_same_nesting_level_local(self):
+        tbl = SymbolTable()
+        tbl.get_current_nesting_level = MagicMock(return_value=1)
+        tbl.lookup = MagicMock(
+            return_value=LookupResult(VariableEntity('local_var0', 8), 1))
+
+        gen = FinalGen(tbl)
+
+        self.assertEqual(gen.storerv(3, 'local_var0'), ['sw $t3, -8($sp)'])
+        tbl.get_current_nesting_level.assert_called_once()
+        tbl.lookup.assert_called_once_with('local_var0')
+
+    def test_storerv_same_nesting_level_in_parameter(self):
+        tbl = SymbolTable()
+        tbl.get_current_nesting_level = MagicMock(return_value=1)
+        tbl.lookup = MagicMock(
+            return_value=LookupResult(ParameterEntity('in_par0', 'cv', 4), 1))
+
+        gen = FinalGen(tbl)
+
+        self.assertEqual(gen.storerv(3, 'in_par0'), ['sw $t3, -4($sp)'])
+        tbl.get_current_nesting_level.assert_called_once()
+        tbl.lookup.assert_called_once_with('in_par0')
+
+    def test_storerv_same_nesting_level_temp(self):
+        tbl = SymbolTable()
+        tbl.get_current_nesting_level = MagicMock(return_value=1)
+        tbl.lookup = MagicMock(
+            return_value=LookupResult(TempVariableEntity('temp_var0', 4), 1))
+
+        gen = FinalGen(tbl)
+
+        self.assertEqual(gen.storerv(4, 'temp_var0'), ['sw $t4, -4($sp)'])
+        tbl.get_current_nesting_level.assert_called_once()
+        tbl.lookup.assert_called_once_with('temp_var0')
+
+    def test_storerv_same_nesting_level_inout_parameter(self):
+        tbl = SymbolTable()
+        tbl.get_current_nesting_level = MagicMock(return_value=1)
+        tbl.lookup = MagicMock(
+            return_value=LookupResult(
+                ParameterEntity('inout_par0', 'ref', 4), 1))
+
+        gen = FinalGen(tbl)
+
+        self.assertEqual(
+            gen.storerv(1, 'inout_par0'), ['lw $t0, -4($sp)', 'sw $t1, ($t0)'])
+        tbl.get_current_nesting_level.assert_called_once()
+        tbl.lookup.assert_called_once_with('inout_par0')
+
+    def test_storerv_one_diff_nesting_level_local(self):
+        tbl = SymbolTable()
+        tbl.get_current_nesting_level = MagicMock(return_value=2)
+        tbl.lookup = MagicMock(
+            return_value=LookupResult(VariableEntity('local_var0', 4), 1))
+
+        gen = FinalGen(tbl)
+
+        self.assertEqual(
+            gen.storerv(1, 'local_var0'),
+            gen.gnlvcode('local_var0') + ['sw $t1, ($t0)'])
+
+    def test_storerv_one_diff_nesting_level_in_parameter(self):
+        tbl = SymbolTable()
+        tbl.get_current_nesting_level = MagicMock(return_value=2)
+        tbl.lookup = MagicMock(
+            return_value=LookupResult(ParameterEntity('in_par0', 'cv', 4), 1))
+
+        gen = FinalGen(tbl)
+
+        self.assertEqual(
+            gen.storerv(5, 'in_par0'),
+            gen.gnlvcode('in_par0') + ['sw $t5, ($t0)'])
+
+    def test_storerv_one_diff_nesting_level_inout_parameter(self):
+        tbl = SymbolTable()
+        tbl.get_current_nesting_level = MagicMock(return_value=2)
+        tbl.lookup = MagicMock(
+            return_value=LookupResult(
+                ParameterEntity('inout_par0', 'ref', 4), 1))
+
+        gen = FinalGen(tbl)
+
+        self.assertEqual(
+            gen.storerv(3, 'inout_par0'),
+            gen.gnlvcode('inout_par0') + ['lw $t0, ($t0)', 'sw $t3, ($t0)'])
+
+    def test_storerv_smaller_nesting_level_local(self):
+        tbl = SymbolTable()
+        tbl.get_current_nesting_level = MagicMock(return_value=3)
+        tbl.lookup = MagicMock(
+            return_value=LookupResult(VariableEntity('local_var0', 4), 1))
+
+        gen = FinalGen(tbl)
+
+        self.assertEqual(
+            gen.storerv(1, 'local_var0'),
+            gen.gnlvcode('local_var0') + ['sw $t1, ($t0)'])
+
+    def test_storerv_smaller_nesting_level_in_parameter(self):
+        tbl = SymbolTable()
+        tbl.get_current_nesting_level = MagicMock(return_value=3)
+        tbl.lookup = MagicMock(
+            return_value=LookupResult(ParameterEntity('in_par0', 'cv', 4), 1))
+
+        gen = FinalGen(tbl)
+
+        self.assertEqual(
+            gen.storerv(3, 'in_par0'),
+            gen.gnlvcode('in_par0') + ['sw $t3, ($t0)'])
+
+    def test_storerv_smaller_nesting_level_inout_parameter(self):
+        tbl = SymbolTable()
+        tbl.get_current_nesting_level = MagicMock(return_value=3)
+        tbl.lookup = MagicMock(
+            return_value=LookupResult(
+                ParameterEntity('inout_par0', 'ref', 4), 1))
+
+        gen = FinalGen(tbl)
+
+        self.assertEqual(
+            gen.storerv(5, 'inout_par0'),
+            gen.gnlvcode('inout_par0') + ['lw $t0, ($t0)', 'sw $t5, ($t0)'])
 
 
 if __name__ == '__main__':
