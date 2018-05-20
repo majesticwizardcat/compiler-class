@@ -49,11 +49,12 @@ passesTest file = do
     errors <- hGetContents stderr
 
     let meaningfulOutput = maximumBy (compare `on` length) [output, errors]
+    let hasErrors = not (null errors)
     removeDirectoryRecursive tempDir
     should <- shouldCompile file
     shouldNot <- shouldNotCompile file
     case exit of
-        ExitSuccess -> return (should, Just meaningfulOutput)
+        ExitSuccess -> return (should && not hasErrors, Just meaningfulOutput)
         ExitFailure _ -> return (shouldNot, Just meaningfulOutput)
 
 greenPutStrLn :: String -> IO ()
