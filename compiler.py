@@ -457,6 +457,9 @@ class SymbolTable:
         return self.has_an_entity_that_fulfills(name,
                                                 lambda x: x.has_signature(sig))
 
+    def get_current_nesting_level(self):
+        return max(0, len(self.scopes) - 1)
+
 
 class FinalGen:
     def __init__(self, table):
@@ -467,54 +470,52 @@ class FinalGen:
         ret.append('lw $t0, -4($sp)')
         lookup_res = self.table.lookup(var)
 
-        for i in range(self.table.scopes[-1].nesting_level -
+        for i in range(self.table.get_current_nesting_level() -
                        lookup_res.nesting_level):
             ret.append('lw $t0, -4($t0)')
 
-        ret.append('add $t0, $t0, -%d' % lookup_res.entity_offset)
+        ret.append('add $t0, $t0, -%d' % lookup_res.entity.offset)
         return ret
 
-    def loadvr(self, var, reg):
-        lookup_res = self.table.lookup(var)
-        if var.isdigit():
-            return 'li $t%s, %s' % reg, var
-        elif lookup_res.nesting_level == 0:
-            return 'lw $t%s, -%d($s0)' % reg, lookup_res.entity.offset
-        elif lookup_res.nesting_level == self.table.scopes[-1].nesting_level:
+    def store_load_rv(self, reg, var, lookup_res, func):
+        current_nesting_level = self.table.get_current_nesting_level()
+        if lookup_res.nesting_level == 0:
+            return [
+                '%s $t%s, -%d($s0)' % (func, reg, lookup_res.entity.offset)
+            ]
+        elif lookup_res.nesting_level == current_nesting_level:
             if isinstance(lookup_res.entity, ParameterEntity) and \
                     lookup_res.entity.mode == 'ref':
-                return 'lw $t0, -%d($sp)\nlw $t%s, ($t0)' % \
-                        lookup_res.entity.offset, reg
+                return [
+                    'lw $t0, -%d($sp)' % lookup_res.entity.offset,
+                    '%s $t%s, ($t0)' % (func, reg)
+                ]
 
-            return 'lw $t%s, -%d($sp)' % reg, lookup_res.entity.offset
+            return [
+                '%s $t%s, -%d($sp)' % (func, reg, lookup_res.entity.offset)
+            ]
         else:
-            self.gnlvcode(var)
+            gnlvret = self.gnlvcode(var)
 
             if isinstance(lookup_res.entity, ParameterEntity) and \
                     lookup_res.entity.mode == 'ref':
-                return 'lw $t0, ($t0)\nlw $t%s, ($t0)' % reg
+                return gnlvret + [
+                    'lw $t0, ($t0)',
+                    '%s $t%s, ($t0)' % (func, reg)
+                ]
 
-            return 'lw $t%d, ($t0)' % reg
+            return gnlvret + ['%s $t%d, ($t0)' % (func, reg)]
+
+    def loadvr(self, var, reg):
+        if var.isdigit():
+            return ['li $t%s, %s' % (reg, var)]
+
+        lookup_res = self.table.lookup(var)
+        return self.store_load_rv(reg, var, lookup_res, 'lw')
 
     def storerv(self, reg, var):
         lookup_res = self.table.lookup(var)
-        if lookup_res.nesting_level == 0:
-            return 'sw $t%s, -%d($s0)' % reg, lookup_res.entity.offset
-        elif lookup_res.nesting_level == self.table.scopes[-1].nesting_level:
-            if isinstance(lookup_res.entity, ParameterEntity) and \
-                    lookup_res.entity.mode == 'ref':
-                return 'lw $t0, -%d($sp)\nsw $t%s, ($t0)' % \
-                        lookup_res.entity.offset, reg
-
-            return 'sw $t%s, -%d($sp)' % reg, lookup_res.entity.offset
-        else:
-            self.gnlvcode(var)
-
-            if isinstance(lookup_res.entity, ParameterEntity) and \
-                    lookup_res.entity.mode == 'ref':
-                return 'lw $t0, ($t0)\nsw $t%s, ($t0)' % reg
-
-            return 'sw $t%d, ($t0)' % reg
+        return self.store_load_rv(reg, var, lookup_res, 'sw')
 
 
 class SyntaxAnal:
