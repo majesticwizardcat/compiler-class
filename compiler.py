@@ -533,15 +533,33 @@ class FinalGen:
         return self.store_load_rv(reg, var, lookup_res, 'sw')
 
     def generate_block(self):
-        fn_entity = self.table.get_cause_of_birth()
-        start_quad = fn_entity.start_quad
+        if self.table.get_current_nesting_level() == 0:
+            start_quad = 0
+        else:
+            start_quad = self.table.get_cause_of_birth().start_quad
+
         quads = self.quad_gen.quad_list[start_quad:]
         self.generated.append(
             reduce(operator.add,
                    (self.translate_quad(quad) for quad in quads)))
 
     def translate_quad(self, quad):
-        return []
+        if quad.op == 'begin_block':
+            return ['%s:' % quad.term0]
+
+        if quad.op == ':=':
+            return self.loadvr(quad.term0, 1) + self.storerv(1, quad.target)
+
+        #TODO: Should check this later
+        if quad.op == 'int':
+            return self.loadvr('0', 1) + self.storerv(1, quad.term0)
+
+        if quad.op == '+':
+            return self.loadvr(quad.term0, 1) + self.loadvr(quad.term1, 2) + [
+                'add $t1, $t1, $t2'
+            ] + self.storerv(1, quad.target)
+
+        raise Exception('Unsupported quad type to translate: %s' % str(quad))
 
 
 class SyntaxAnal:
@@ -1155,15 +1173,16 @@ if __name__ == '__main__':
         tokens = Lexer(source).tokenize()
         syntax_anal = SyntaxAnal(tokens)
         syntax_anal.check_syntax()
-        cbackend = CBackend(syntax_anal.quad_gen)
+        #cbackend = CBackend(syntax_anal.quad_gen)
         print('Putting intermediate code in [%s]...' % intermediate_filename)
         with open(intermediate_filename, 'w') as intermediate_file:
             intermediate_file.write(str(syntax_anal.quad_gen))
-        print('Putting C code in [%s]...' % intermediate_filename)
-        with open(c_filename, 'w') as c_file:
-            c_file.write(cbackend.convert())
+        #print('Putting C code in [%s]...' % intermediate_filename)
+        #with open(c_filename, 'w') as c_file:
+        #    c_file.write(cbackend.convert())
         #print('Compiling C code [%s] to [%s]...' % (c_filename, sourcename))
         #subprocess.call(['cc', '-o', sourcename, c_filename])
+        print('\n'.join(syntax_anal.final.generated[0]))
     except CompilationError as e:
         print('%s:%s\n' % (args.source_file, str(e)))
         sys.exit(1)
