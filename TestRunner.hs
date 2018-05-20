@@ -2,12 +2,13 @@
 import Control.Monad (filterM, unless)
 import System.Directory (getCurrentDirectory, listDirectory, removeDirectoryRecursive)
 import System.FilePath (hasExtension, takeExtension, replaceBaseName, takeBaseName, (</>), takeFileName)
-import Data.List (isPrefixOf, isInfixOf)
+import Data.List (isPrefixOf, isInfixOf, maximumBy)
 import System.Process (createProcess, waitForProcess, shell, CreateProcess(..), StdStream(..))
 import System.Exit (ExitCode(..), exitWith, exitSuccess, exitFailure)
 import System.Posix.Temp (mkdtemp)
 import GHC.IO.Handle (hGetContents)
 import Data.Maybe (fromJust)
+import Data.Function (on)
 
 containsAnnotation :: String -> String -> Bool
 containsAnnotation annotation line = ("//" `isPrefixOf` line) && ("@" ++ annotation) `isInfixOf` line
@@ -42,15 +43,18 @@ passesTest file = do
     let compiler = cwd </> "compiler.py"
     let cmd = unwords ["python3", compiler, file]
     tempDir <- mkdtemp "compiler-test"
-    (_, stdout, _, ph) <- createProcess $ (shell cmd){ cwd = Just tempDir, std_out = CreatePipe, std_err = CreatePipe }
+    (_, Just stdout, Just stderr, ph) <- createProcess $ (shell cmd){ cwd = Just tempDir, std_out = CreatePipe, std_err = CreatePipe }
     exit <- waitForProcess ph
-    output <- hGetContents $ fromJust stdout
+    output <- hGetContents stdout
+    errors <- hGetContents stderr
+
+    let meaningfulOutput = maximumBy (compare `on` length) [output, errors]
     removeDirectoryRecursive tempDir
     should <- shouldCompile file
     shouldNot <- shouldNotCompile file
     case exit of
-        ExitSuccess -> return (should, Nothing)
-        ExitFailure _ -> return (shouldNot, Just output)
+        ExitSuccess -> return (should, Just meaningfulOutput)
+        ExitFailure _ -> return (shouldNot, Just meaningfulOutput)
 
 greenPutStrLn :: String -> IO ()
 greenPutStrLn output = putStrLn $ "\x1b[32m" ++ output ++ "\x1b[0m"
