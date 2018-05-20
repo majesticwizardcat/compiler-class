@@ -11,7 +11,7 @@ import Data.Maybe (fromJust)
 import Data.Function (on)
 
 containsAnnotation :: String -> String -> Bool
-containsAnnotation annotation line = ("//" `isPrefixOf` line) && ("@" ++ annotation) `isInfixOf` line
+containsAnnotation annotation line = ("//" `isPrefixOf` line) && annotation `isInfixOf` line
 
 fileContainsAnnotation :: String -> FilePath -> IO Bool
 fileContainsAnnotation annotation file = do
@@ -20,10 +20,10 @@ fileContainsAnnotation annotation file = do
     return $ any (containsAnnotation annotation) linesOfFile
 
 shouldCompile :: FilePath -> IO Bool
-shouldCompile = fileContainsAnnotation "should_compile"
+shouldCompile = fileContainsAnnotation "should compile"
 
 shouldNotCompile :: FilePath -> IO Bool
-shouldNotCompile = fileContainsAnnotation "should_not_compile"
+shouldNotCompile = fileContainsAnnotation "should not compile"
 
 -- TODO(gtklocker): is this really the best way to accomplish this?
 shouldBeTested :: FilePath -> IO Bool

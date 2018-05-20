@@ -1,4 +1,4 @@
-// @should_not_compile
+// should not compile
 program foo
     function baz()
         return 41

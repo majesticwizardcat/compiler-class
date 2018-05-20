@@ -1,4 +1,4 @@
-// @should_compile
+// should compile
 program example3
    declare a,b,c,d,e,x,y,px,py,temp enddeclare
    repeat

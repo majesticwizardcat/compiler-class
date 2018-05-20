@@ -1,4 +1,4 @@
-// @should_not_compile
+// should not compile
 program foo
     declare bat, man enddeclare
     man := bat()

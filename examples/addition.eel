@@ -1,4 +1,4 @@
-// @should_compile
+// should compile
 program addition
     declare a, b enddeclare
     a := 1 + 2; // 3
