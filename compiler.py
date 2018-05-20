@@ -431,6 +431,31 @@ class SymbolTable:
     def lookup_on_current_scope(self, name):
         return self.lookup(name, scopes=[self.scopes[-1]])
 
+    def has_an_entity_that_fulfills(self, name, fulfills=lambda x: True):
+        lookup_result = self.lookup(name)
+        if lookup_result is None:
+            return False
+        elif fulfills(lookup_result.entity):
+            return True
+        else:
+            return False
+
+    def has_a_variable(self, name):
+        return self.has_an_entity_that_fulfills(name,
+                                                lambda x: x.is_a_variable())
+
+    def has_a_procedure(self, name):
+        return self.has_an_entity_that_fulfills(name,
+                                                lambda x: x.is_a_procedure())
+
+    def has_a_function(self, name):
+        return self.has_an_entity_that_fulfills(name,
+                                                lambda x: x.is_a_function())
+
+    def has_a_callable_with_signature(self, name, sig):
+        return self.has_an_entity_that_fulfills(name,
+                                                lambda x: x.has_signature(sig))
+
 
 class SyntaxAnal:
     def __init__(self, tokens):
@@ -733,13 +758,11 @@ class SyntaxAnal:
         self.quad_gen.genquad('call', name, '_', '_')
 
     def ensure_a_valid_procedure(self, name):
-        candidate = self.table.lookup(name).entity
-        if not candidate.is_a_procedure():
+        if not self.table.has_a_procedure(name):
             self.error_incorrect_use(name, 'procedure')
 
     def ensure_signature(self, name, types):
-        proc = self.table.lookup(name).entity
-        if not proc.has_signature(types):
+        if not self.table.has_a_callable_with_signature(name, types):
             raise CompilationError(
                 pos=self.last_pos, msg='Invalid signature for "%s".' % name)
 
@@ -911,13 +934,11 @@ class SyntaxAnal:
             return self.consume('int').value
 
     def ensure_a_valid_function(self, name):
-        candidate = self.table.lookup(name).entity
-        if not candidate.is_a_function():
+        if not self.table.has_a_function(name):
             self.error_incorrect_use(name, 'function')
 
     def ensure_a_valid_variable(self, name):
-        candidate = self.table.lookup(name).entity
-        if not candidate.is_a_variable():
+        if not self.table.has_a_variable(name):
             self.error_incorrect_use(name, 'variable')
 
     def parse_idtail(self, fn_name):
