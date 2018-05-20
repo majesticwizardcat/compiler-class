@@ -22,8 +22,10 @@ program fibonacci
             res := last + cur;
             last := cur;
             cur := res;
-            index := index + 1;
+            index := index + 1
         endrepeat
+
+	return res
     endfunction
 
     // Using recursion
