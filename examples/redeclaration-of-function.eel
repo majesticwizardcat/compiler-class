@@ -1,4 +1,5 @@
-// @should_not_compile
+// should not compile
+// should complain about Redeclaring baz
 program foo
     function baz()
         return 41

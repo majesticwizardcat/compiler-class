@@ -1,4 +1,5 @@
-// @should_not_compile
+// should not compile
+// should complain about Using "procbaz" as a variable
 program foo
     declare bat enddeclare
     procedure procbaz()

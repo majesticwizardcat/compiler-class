@@ -1,4 +1,4 @@
-// @should_compile
+// should compile
 program inputprogram
     declare foo enddeclare
     input foo;

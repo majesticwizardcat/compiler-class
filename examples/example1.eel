@@ -1,5 +1,5 @@
-// @should_not_compile
-// should complain about missing return
+// should not compile
+// should complain about no return
 program example1
    declare d,i,g,f enddeclare
 

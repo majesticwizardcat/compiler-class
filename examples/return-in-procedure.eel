@@ -1,4 +1,5 @@
-// @should_not_compile
+// should not compile
+// should complain about return outside function block
 program testcase
     procedure foo()
         return 42
