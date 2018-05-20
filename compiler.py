@@ -364,6 +364,9 @@ class Argument(Serializable, Comparable):
         self.mode = mode
 
 
+LookupResult = namedtuple('LookupResult', ['entity', 'nesting_level'])
+
+
 class SymbolTable:
     def __init__(self):
         self.scopes = []
@@ -421,9 +424,7 @@ class SymbolTable:
             for entity in scope.entities[::-1]:
                 try:
                     if entity.name == name:
-                        return namedtuple('LookupResult',
-                                          ['entity', 'nesting_level'])(
-                                              entity, scope.nesting_level)
+                        return LookupResult(entity, scope.nesting_level)
                 except AttributeError:
                     pass
         return None
