@@ -1,4 +1,5 @@
 // should not compile
+// should complain about stray return
 program foo
     return 12
 endprogram

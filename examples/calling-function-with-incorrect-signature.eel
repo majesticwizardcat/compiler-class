@@ -1,4 +1,5 @@
 // should not compile
+// should complain about Invalid signature
 program foo
     declare x enddeclare
     function foofn(in x, inout y)

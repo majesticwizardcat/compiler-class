@@ -1,4 +1,5 @@
 // should not compile
+// should complain about Using "bat" as a function
 program foo
     declare bat, man enddeclare
     man := bat()

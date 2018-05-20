@@ -1,4 +1,5 @@
 // should not compile
+// should complain about Using "bat" as a procedure
 program foo
     declare bat enddeclare
     call bat()

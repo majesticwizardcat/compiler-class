@@ -1,4 +1,5 @@
 // should not compile
+// should complain about Found exit outside a repeat block
 program invalidexit
    declare a enddeclare
     a := 0;

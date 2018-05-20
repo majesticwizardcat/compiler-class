@@ -2,12 +2,12 @@
 import Control.Monad (filterM, unless)
 import System.Directory (getCurrentDirectory, listDirectory, removeDirectoryRecursive)
 import System.FilePath (hasExtension, takeExtension, replaceBaseName, takeBaseName, (</>), takeFileName)
-import Data.List (isPrefixOf, isInfixOf, maximumBy)
+import Data.List (isPrefixOf, isInfixOf, maximumBy, find, stripPrefix)
 import System.Process (createProcess, waitForProcess, shell, CreateProcess(..), StdStream(..))
 import System.Exit (ExitCode(..), exitWith, exitSuccess, exitFailure)
 import System.Posix.Temp (mkdtemp)
 import GHC.IO.Handle (hGetContents)
-import Data.Maybe (fromJust)
+import Data.Maybe (fromJust, isJust)
 import Data.Function (on)
 
 containsAnnotation :: String -> String -> Bool
@@ -24,6 +24,17 @@ shouldCompile = fileContainsAnnotation "should compile"
 
 shouldNotCompile :: FilePath -> IO Bool
 shouldNotCompile = fileContainsAnnotation "should not compile"
+
+shouldComplainAbout :: FilePath -> IO (Maybe String)
+shouldComplainAbout file = do
+    content <- readFile file
+    let linesOfFile = lines content
+    let annotation = find (containsAnnotation "should complain about") linesOfFile
+
+    case annotation of
+        Just line -> return $ stripPrefix "// should complain about " line
+        Nothing -> return Nothing
+    
 
 -- TODO(gtklocker): is this really the best way to accomplish this?
 shouldBeTested :: FilePath -> IO Bool
@@ -53,9 +64,14 @@ passesTest file = do
     removeDirectoryRecursive tempDir
     should <- shouldCompile file
     shouldNot <- shouldNotCompile file
+    shouldComplain <- shouldComplainAbout file
+
+    complaintCheckOk <- case shouldComplain of
+        Just complaint -> return $ complaint `isInfixOf` output
+        Nothing -> return True
     case exit of
-        ExitSuccess -> return (should && not hasErrors, Just meaningfulOutput)
-        ExitFailure _ -> return (shouldNot, Just meaningfulOutput)
+        ExitSuccess -> return (should && not hasErrors && complaintCheckOk, Just meaningfulOutput)
+        ExitFailure _ -> return (shouldNot && complaintCheckOk, Just meaningfulOutput)
 
 greenPutStrLn :: String -> IO ()
 greenPutStrLn output = putStrLn $ "\x1b[32m" ++ output ++ "\x1b[0m"
@@ -69,9 +85,10 @@ yellowPutStrLn output = putStrLn $ "\x1b[33m" ++ output ++ "\x1b[0m"
 testAnnotated :: FilePath -> IO Bool
 testAnnotated file = do
     (passes, output) <- passesTest file
+    hasComplaintCheck <- shouldComplainAbout file 
 
     if passes
-    then greenPutStrLn "pass"
+    then greenPutStrLn $ "pass" ++ if isJust hasComplaintCheck then "!!!" else ""
     else redPutStrLn "fail"
 
     case output of 
