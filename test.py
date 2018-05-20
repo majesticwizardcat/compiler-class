@@ -160,6 +160,20 @@ class SymbolTableTest(unittest.TestCase):
         tbl.add_entity(VariableEntity("foo"))
         tbl.destroy_scope()
 
+    def test_add_entity_on_empty_nested_scope_gives_correct_offset(self):
+        tbl = SymbolTable()
+        tbl.create_scope()
+        tbl.add_entity(VariableEntity("varfoo1"))
+        tbl.add_entity(
+            FunctionEntity("procfoo", start_quad=42, type="procedure"))
+        tbl.create_scope()
+        tbl.add_entity(VariableEntity("varfoo2"))
+
+        last = tbl.last_entity()
+        self.assertEqual(len(tbl.scopes[-1].entities), 1)
+        self.assertEqual(last.name, "varfoo2")
+        self.assertEqual(last.offset, 12)
+
 
 if __name__ == '__main__':
     unittest.main()
