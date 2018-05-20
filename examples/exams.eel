@@ -1,4 +1,5 @@
-// should compile
+// should not compile
+// should complain about no return
 program exams
     declare a, b enddeclare
     function P1 (in x, inout y)

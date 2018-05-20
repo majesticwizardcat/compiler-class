@@ -1,0 +1,12 @@
+// should not compile
+// should complain about got `return`
+
+program semicolontest
+	function f()
+		repeat
+			exit
+		endrepeat
+
+		return 0
+	endfunciton
+endprogram

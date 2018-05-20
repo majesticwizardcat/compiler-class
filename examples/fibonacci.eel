@@ -1,4 +1,4 @@
-// should not compile
+// should compile
 /* This is a program that calculates the fibonacci sequence
 using different methods
 */
@@ -22,8 +22,10 @@ program fibonacci
             res := last + cur;
             last := cur;
             cur := res;
-            index := index + 1;
-        endrepeat
+            index := index + 1
+        endrepeat;
+
+	return res
     endfunction
 
     // Using recursion

@@ -1,0 +1,8 @@
+// should compile
+
+program redclare
+	declare x enddeclare
+	procedure p()
+		declare x enddeclare
+	endprocedure
+endprogram
