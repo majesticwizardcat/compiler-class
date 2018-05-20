@@ -420,7 +420,7 @@ class SymbolTable:
 
     def lookup(self, name, scopes=None):
         scopes = self.scopes if scopes is None else scopes
-        for scope in self.scopes[::-1]:
+        for scope in scopes[::-1]:
             for entity in scope.entities[::-1]:
                 try:
                     if entity.name == name:
