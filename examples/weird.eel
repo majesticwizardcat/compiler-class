@@ -1,4 +1,4 @@
-// @should_compile
+// @should_not_compile
 /* Comment testing
 
 /* <- this should work
