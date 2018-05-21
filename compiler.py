@@ -552,11 +552,14 @@ class FinalGen:
             reduce(operator.add,
                    (self.translate_quad(quad) for quad in quads)))
 
+    def new_scope_setup(self):
+        return ['add $sp, $sp, 12', 'sw $ra, -12($sp)']
+
     def translate_quad(self, quad):
         qid = [str(quad.id) + ':']
 
         if quad.op == 'begin_block':
-            return qid + ['%s:' % quad.term0]
+            return qid + ['%s:' % quad.term0] + self.new_scope_setup()
 
         if quad.op == ':=':
             return qid + self.loadvr(quad.term0, 1) + self.storerv(
