@@ -568,6 +568,21 @@ class FinalGen:
                 'add $t1, $t1, $t2'
             ] + self.storerv(1, quad.target)
 
+        if quad.op == '-':
+            return self.loadvr(quad.term0, 1) + self.loadvr(quad.term1, 2) + [
+                'sub $t1, $t1, $t2'
+            ] + self.storerv(1, quad.target)
+
+        if quad.op == '*':
+            return self.loadvr(quad.term0, 1) + self.loadvr(quad.term1, 2) + [
+                'mul $t1, $t1, $t2'
+            ] + self.storerv(1, quad.target)
+
+        if quad.op == '/':
+            return self.loadvr(quad.term0, 1) + self.loadvr(quad.term1, 2) + [
+                'div $t1, $t1, $t2'
+            ] + self.storerv(1, quad.target)
+
         raise Exception('Unsupported quad type to translate: %s' % str(quad))
 
 
