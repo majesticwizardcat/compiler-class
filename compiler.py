@@ -556,7 +556,7 @@ class FinalGen:
         return ['add $sp, $sp, 12', 'sw $ra, -12($sp)']
 
     def translate_quad(self, quad):
-        qid = [str(quad.id) + ':']
+        qid = ['L_%s:' % quad.id]
 
         if quad.op == 'begin_block':
             return qid + ['%s:' % quad.term0] + self.new_scope_setup()
@@ -590,31 +590,31 @@ class FinalGen:
                     1, quad.target)
 
         if quad.op == 'jump':
-            return qid + ['j %s' % quad.target]
+            return qid + ['j L_%s' % quad.target]
 
         if quad.op == '=':
             return qid + self.loadvr(quad.term0, 1) + self.loadvr(
-                quad.term1, 2) + ['beq $t1, $t2, %s' % quad.target]
+                quad.term1, 2) + ['beq $t1, $t2, L_%s' % quad.target]
 
         if quad.op == '<>':
             return qid + self.loadvr(quad.term0, 1) + self.loadvr(
-                quad.term1, 2) + ['bne $t1, $t2, %s' % quad.target]
+                quad.term1, 2) + ['bne $t1, $t2, L_%s' % quad.target]
 
         if quad.op == '>':
             return qid + self.loadvr(quad.term0, 1) + self.loadvr(
-                quad.term1, 2) + ['bgt $t1, $t2, %s' % quad.target]
+                quad.term1, 2) + ['bgt $t1, $t2, L_%s' % quad.target]
 
         if quad.op == '<':
             return qid + self.loadvr(quad.term0, 1) + self.loadvr(
-                quad.term1, 2) + ['blt $t1, $t2, %s' % quad.target]
+                quad.term1, 2) + ['blt $t1, $t2, L_%s' % quad.target]
 
         if quad.op == '>=':
             return qid + self.loadvr(quad.term0, 1) + self.loadvr(
-                quad.term1, 2) + ['bge $t1, $t2, %s' % quad.target]
+                quad.term1, 2) + ['bge $t1, $t2, L_%s' % quad.target]
 
         if quad.op == '<=':
             return qid + self.loadvr(quad.term0, 1) + self.loadvr(
-                quad.term1, 2) + ['ble $t1, $t2, %s' % quad.target]
+                quad.term1, 2) + ['ble $t1, $t2, L_%s' % quad.target]
 
         raise Exception('Unsupported quad type to translate: %s' % str(quad))
 
