@@ -394,7 +394,8 @@ class SymbolTable:
         if len(self.scopes) > 0:
             if not isinstance(self.last_entity(), FunctionEntity):
                 raise Exception
-            self.last_entity().frame_length = 12 + len(last_scope.entities) * 4
+            self.last_entity(
+            ).frame_length = 12 + self.get_var_entities_on_scope(last_scope) * 4
 
     def add_entity(self, entity):
         if hasattr(entity, 'offset'):
@@ -472,6 +473,14 @@ class SymbolTable:
 
     def get_cause_of_birth(self):
         return self.scopes[-2].entities[-1]
+
+    def get_var_entities_on_scope(self, scope):
+        var_entities = 0
+        for entity in scope.entities:
+            if entity.is_a_variable():
+                var_entities += 1
+
+        return var_entities
 
 
 class FinalGen:
