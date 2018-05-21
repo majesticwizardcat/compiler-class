@@ -553,35 +553,65 @@ class FinalGen:
                    (self.translate_quad(quad) for quad in quads)))
 
     def translate_quad(self, quad):
+        qid = [str(quad.id) + ':']
+
         if quad.op == 'begin_block':
-            return ['%s:' % quad.term0]
+            return qid + ['%s:' % quad.term0]
 
         if quad.op == ':=':
-            return self.loadvr(quad.term0, 1) + self.storerv(1, quad.target)
+            return qid + self.loadvr(quad.term0, 1) + self.storerv(
+                1, quad.target)
 
         #TODO: Should check this later
         if quad.op == 'int':
-            return self.loadvr('0', 1) + self.storerv(1, quad.term0)
+            return qid + self.loadvr('0', 1) + self.storerv(1, quad.term0)
 
         if quad.op == '+':
-            return self.loadvr(quad.term0, 1) + self.loadvr(quad.term1, 2) + [
-                'add $t1, $t1, $t2'
-            ] + self.storerv(1, quad.target)
+            return qid + self.loadvr(quad.term0, 1) + self.loadvr(
+                quad.term1, 2) + ['add $t1, $t1, $t2'] + self.storerv(
+                    1, quad.target)
 
         if quad.op == '-':
-            return self.loadvr(quad.term0, 1) + self.loadvr(quad.term1, 2) + [
-                'sub $t1, $t1, $t2'
-            ] + self.storerv(1, quad.target)
+            return qid + self.loadvr(quad.term0, 1) + self.loadvr(
+                quad.term1, 2) + ['sub $t1, $t1, $t2'] + self.storerv(
+                    1, quad.target)
 
         if quad.op == '*':
-            return self.loadvr(quad.term0, 1) + self.loadvr(quad.term1, 2) + [
-                'mul $t1, $t1, $t2'
-            ] + self.storerv(1, quad.target)
+            return qid + self.loadvr(quad.term0, 1) + self.loadvr(
+                quad.term1, 2) + ['mul $t1, $t1, $t2'] + self.storerv(
+                    1, quad.target)
 
         if quad.op == '/':
-            return self.loadvr(quad.term0, 1) + self.loadvr(quad.term1, 2) + [
-                'div $t1, $t1, $t2'
-            ] + self.storerv(1, quad.target)
+            return qid + self.loadvr(quad.term0, 1) + self.loadvr(
+                quad.term1, 2) + ['div $t1, $t1, $t2'] + self.storerv(
+                    1, quad.target)
+
+        if quad.op == 'jump':
+            return qid + ['j %s' % quad.target]
+
+        if quad.op == '=':
+            return qid + self.loadvr(quad.term0, 1) + self.loadvr(
+                quad.term1, 2) + ['beq $t1, $t2, %s' % quad.target]
+
+        if quad.op == '<>':
+            return qid + self.loadvr(quad.term0, 1) + self.loadvr(
+                quad.term1, 2) + ['bne $t1, $t2, %s' % quad.target]
+
+        if quad.op == '>':
+            return qid + self.loadvr(quad.term0, 1) + self.loadvr(
+                quad.term1, 2) + ['bgt $t1, $t2, %s' % quad.target]
+
+        if quad.op == '<':
+            return qid + self.loadvr(quad.term0, 1) + self.loadvr(
+                quad.term1, 2) + ['blt $t1, $t2, %s' % quad.target]
+
+        if quad.op == '>=':
+            return qid + self.loadvr(quad.term0, 1) + self.loadvr(
+                quad.term1, 2) + ['bge $t1, $t2, %s' % quad.target]
+
+        if quad.op == '<=':
+            return qid + self.loadvr(quad.term0, 1) + self.loadvr(
+                quad.term1, 2) + ['ble $t1, $t2, %s' % quad.target]
 
         raise Exception('Unsupported quad type to translate: %s' % str(quad))
 
