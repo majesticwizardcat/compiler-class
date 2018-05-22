@@ -1,0 +1,8 @@
+// should compile
+
+program multop
+	declare x, y, z enddeclare
+	x := 1;
+	y := x * 2 + 5;
+	z := (x + y) * 3 - 2 / 2
+endprogram

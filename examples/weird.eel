@@ -25,7 +25,9 @@ program /* comment between tokens */ weird
                         */
                         if 4 - 1 = 3 then
                         endif
-                    endif
+                    endif;
+		    index := 11;
+		    exit
                 endrepeat;    
 
                 result := result + index

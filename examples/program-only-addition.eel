@@ -1,0 +1,7 @@
+// should compile
+
+program simpleadd
+	declare x enddeclare
+	x := 42;
+	x := x + 1
+endprogram

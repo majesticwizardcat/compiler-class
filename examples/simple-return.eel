@@ -1,0 +1,10 @@
+// should compile
+
+program simpleret
+	declare x enddeclare
+	function f(in y, in z)
+		return y + z + x
+	endfunction
+	x := 1;
+	x := f(in 2, in 3)
+endprogram

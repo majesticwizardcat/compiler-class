@@ -1,0 +1,6 @@
+// should compile
+
+program simple
+	declare x enddeclare
+	x := 42
+endprogram
