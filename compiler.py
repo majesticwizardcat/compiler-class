@@ -400,7 +400,7 @@ class SymbolTable:
     def add_entity(self, entity):
         if hasattr(entity, 'offset'):
             entity.offset = self.find_closest_on_current_scope_with_offset().offset + 4 \
-            if self.find_closest_on_current_scope_with_offset() is not None else 16
+            if self.find_closest_on_current_scope_with_offset() is not None else 12
 
         self.scopes[-1].entities.append(entity)
         #print('add_entity(): entities now', self.scopes[-1].entities)
@@ -564,7 +564,7 @@ class FinalGen:
         else:
             main = []
 
-        return ['add $sp, $sp, %s' % framelength, 'sw $ra, -12($sp)'] + main
+        return ['add $sp, $sp, %s' % framelength, 'sw $ra, ($sp)'] + main
 
     def translate_quad(self, quad):
         qid = ['L_%s:' % quad.id]
