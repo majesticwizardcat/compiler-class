@@ -588,6 +588,9 @@ class FinalGen:
 
         i = 0
         for quad in quads:
+            qid = ['L_%s:' % quad.id]
+            ret += qid
+
             if quad.term1 == 'cv':
                 ret += self.loadvr(quad.term0, 0)
                 ret += ['sw $t0, -%s($fp)' % (12 + i * 4)]
@@ -645,7 +648,7 @@ class FinalGen:
                 1, quad.target)
 
         if quad.op == 'int' or quad.op == 'par':
-            return []
+            return qid + []
 
         if quad.op == '+':
             return qid + self.loadvr(quad.term0, 1) + self.loadvr(
@@ -705,7 +708,7 @@ class FinalGen:
                                                            quad.term0)
 
         if quad.op == 'end_block':
-            return []
+            return qid + []
 
         if quad.op == 'out':
             return qid + self.loadvr(quad.term0, 1) + [
