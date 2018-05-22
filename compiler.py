@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
 #Karantias Konstantinos 2454 cse32454 Goulioumis Ioannis 2232 cse32232
 import argparse
-import operator
 import os
 import re
-import subprocess
 import sys
 from collections import defaultdict, namedtuple
-from functools import reduce
 from pprint import pformat
 
 INVALID_TOKENS = [
@@ -302,9 +299,6 @@ class Entity(Serializable, Comparable):
     def __init__(self, name):
         self.name = name
 
-    def has_name(self, name):
-        return self.name == name
-
     def is_a_function(self):
         return False
 
@@ -346,12 +340,6 @@ class FunctionEntity(Entity):
     def has_signature(self, types):
         expected = [arg.mode for arg in self.arguments]
         return types == expected
-
-
-class ConstantEntity(Entity):
-    def __init__(self, name, value):
-        super().__init__(name)
-        self.value = value
 
 
 class ParameterEntity(Entity):
@@ -1335,71 +1323,6 @@ class SyntaxAnal:
         return ''
 
 
-class CBackend:
-    def __init__(self, quadgen):
-        self.quadlist = quadgen.quad_list
-
-    def convert(self):
-        return '\n'.join(self.prelude() + self.identifiers() + self.code() +
-                         self.postlude())
-
-    def prelude(self):
-        return ['#include <stdio.h>', 'int main() {']
-
-    def postlude(self):
-        return ['}']
-
-    def code(self):
-        return [
-            '\tL_%d: %s %s' % (quad.id, self.quad_to_c(quad),
-                               self.quad_to_comment(quad))
-            for quad in self.quadlist
-        ]
-
-    @staticmethod
-    def quad_to_c(q):
-        ret = None
-        op = q.op
-        if op in ['+', '-', '*', '/']:
-            ret = '%s = %s %s %s;' % (q.target, q.term0, op, q.term1)
-        elif op in ['begin_block', 'end_block', 'halt', 'int']:
-            ret = '{}'
-        elif op == ':=':
-            ret = '%s = %s;' % (q.target, q.term0)
-        elif op in ['>=', '<=', '<', '>', '=', '<>']:
-            c_op = op
-            if op == '=':
-                c_op = '=='
-            elif op == '<>':
-                c_op = '!='
-            ret = 'if (%s %s %s) goto L_%s;' % (q.term0, c_op, q.term1,
-                                                q.target)
-        elif op == 'jump':
-            ret = 'goto L_%s;' % q.target
-        elif op == 'out':
-            ret = 'printf("%%d\\n", %s);' % q.term0
-        elif op == 'inp':
-            ret = 'scanf("%%d", &%s);' % q.term0
-        else:
-            print('Unknown quad type "%s", can\'t translate to C.' % op)
-            exit(0)  # C translation errors are OK
-
-        return ret
-
-    @staticmethod
-    def quad_to_comment(quad):
-        return '// (%s, %s, %s, %s)' % (quad.op, quad.term0, quad.term1,
-                                        quad.target)
-
-    def identifiers(self):
-        temps = set(
-            quad.target for quad in self.quadlist
-            if str(quad.target).startswith('T_'))
-        declared_variables = set(
-            quad.term0 for quad in self.quadlist if quad.op == 'int')
-        return ['\tint %s;' % ', '.join(temps | declared_variables)]
-
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('source_file')
@@ -1408,7 +1331,6 @@ if __name__ == '__main__':
     basename = os.path.basename(args.source_file)
     sourcename = basename.split('.')[0]
     intermediate_filename = '%s.eeli' % sourcename
-    c_filename = '%s.c' % sourcename
     final_filename = '%s.s' % sourcename
 
     with open(args.source_file, 'r') as source_file:
@@ -1417,19 +1339,12 @@ if __name__ == '__main__':
         tokens = Lexer(source).tokenize()
         syntax_anal = SyntaxAnal(tokens)
         syntax_anal.check_syntax()
-        #cbackend = CBackend(syntax_anal.quad_gen)
         print('Putting intermediate code in [%s]...' % intermediate_filename)
         with open(intermediate_filename, 'w') as intermediate_file:
             intermediate_file.write(str(syntax_anal.quad_gen))
-        #print('Putting C code in [%s]...' % intermediate_filename)
-        #with open(c_filename, 'w') as c_file:
-        #    c_file.write(cbackend.convert())
-        #print('Compiling C code [%s] to [%s]...' % (c_filename, sourcename))
-        #subprocess.call(['cc', '-o', sourcename, c_filename])
         print('Putting final code in [%s]...' % final_filename)
         with open(final_filename, 'w') as s_file:
             s_file.write(syntax_anal.final.formatted())
-        #print(syntax_anal.final.generated)
     except CompilationError as e:
         print('%s:%s\n' % (args.source_file, str(e)))
         sys.exit(1)
