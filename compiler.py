@@ -232,6 +232,7 @@ class QuadGenerator:
         self.temp_id = 0
         self.quad_list = []
         self.table = table
+        self.marked = []
 
     def nextquad(self):
         return self.quad_id
@@ -244,12 +245,13 @@ class QuadGenerator:
                 term0=term0,
                 term1=term1,
                 target=target))
+        self.marked.append(False)
         self.quad_id += 1
 
-    def newtemp(self, table=None):
+    def newtemp(self, should_gen=True):
         temp = 'T_%d' % self.temp_id
         self.temp_id += 1
-        if self.table is not None:
+        if should_gen and self.table is not None:
             self.table.add_entity(TempVariableEntity(temp))
         return temp
 
@@ -262,6 +264,17 @@ class QuadGenerator:
                 term0=quad.term0,
                 term1=quad.term1,
                 target=target)
+
+    def get_and_mark_quads_from(self, from_index):
+        quads = [
+            quad for quad in self.quad_list[from_index:]
+            if not self.marked[quad.id]
+        ]
+
+        for i in range(from_index, len(self.marked)):
+            self.marked[i] = True
+
+        return quads
 
     def __str__(self):
         return '\n'.join(
@@ -342,7 +355,7 @@ class ConstantEntity(Entity):
 
 
 class ParameterEntity(Entity):
-    def __init__(self, name, mode, offset):
+    def __init__(self, name, mode, offset=None):
         super().__init__(name)
         self.mode = mode
         self.offset = offset
@@ -355,6 +368,9 @@ class TempVariableEntity(Entity):
     def __init__(self, name, offset=None):
         super().__init__(name)
         self.offset = offset
+
+    def is_a_variable(self):
+        return True
 
 
 class Scope(Serializable, Comparable):
@@ -390,12 +406,27 @@ class SymbolTable:
         #print('entities now', self.scopes[-1].entities)
 
     def destroy_scope(self):
-        last_scope = self.scopes.pop()
-        if len(self.scopes) > 0:
-            if not isinstance(self.last_entity(), FunctionEntity):
-                raise Exception
-            self.last_entity(
-            ).frame_length = 12 + self.get_var_entities_on_scope(last_scope) * 4
+        if not self.is_callee_framelength_filled_in():
+            raise Exception
+        self.scopes.pop()
+
+    def fill_in_framelength_on_callee(self):
+        if self.callee() is None:
+            return
+        self.callee().frame_length = self.get_current_framelength()
+
+    def is_callee_framelength_filled_in(self):
+        if self.callee() is None:
+            return True
+        return self.callee().frame_length is not None
+
+    def callee(self):
+        if len(self.scopes) <= 1:
+            return None
+        candidate = self.scopes[-2].entities[-1]
+        if not isinstance(candidate, FunctionEntity):
+            raise Exception
+        return candidate
 
     def add_entity(self, entity):
         if hasattr(entity, 'offset'):
@@ -533,8 +564,15 @@ class FinalGen:
 
             return gnlvret + ['%s $t%d, ($t0)' % (func, reg)]
 
+    def isconst(self, var):
+        try:
+            int(var)
+            return True
+        except ValueError:
+            return False
+
     def loadvr(self, var, reg):
-        if var.isdigit():
+        if self.isconst(var):
             return ['li $t%s, %s' % (reg, var)]
 
         lookup_res = self.table.lookup(var)
@@ -545,14 +583,42 @@ class FinalGen:
         return self.store_load_rv(reg, var, lookup_res, 'sw')
 
     def generate_block(self):
-        if self.table.get_current_nesting_level() == 0:
+        current_level = self.table.get_current_nesting_level()
+        if current_level == 0:
             start_quad = 0
         else:
             start_quad = self.table.get_cause_of_birth().start_quad
 
-        quads = self.quad_gen.quad_list[start_quad:]
-        for quad in quads:
-            self.generated += self.translate_quad(quad)
+        #print('new generate_block() invocation')
+        #print('nesting level', current_level, 'start quad', start_quad)
+        quads = self.quad_gen.get_and_mark_quads_from(start_quad)
+
+        par_quads = []
+        #print(quads)
+        for i, quad in enumerate(quads):
+            #print(quad)
+
+            if quad.op == 'par':
+                par_quads += [quad]
+            else:
+                if quad.op == 'call':
+                    self.generated += self.precall_set_fp(quad.term0)
+
+                if len(par_quads) > 0:
+                    self.generated += self.setup_parameters(par_quads)
+                    par_quads = []
+
+                self.generated += self.translate_quad(quad)
+
+        if current_level is not 0:
+            self.generated += self.jump_to_ra()
+
+    def precall_set_fp(self, func_name):
+        lookup_res = self.table.lookup(func_name)
+        return ['add $fp, $sp, %s' % lookup_res.entity.frame_length]
+
+    def jump_to_ra(self):
+        return ['lw $ra, ($sp)', 'jr $ra']
 
     def generate_jump_to_main(self):
         self.generated += ['j L_0']
@@ -569,6 +635,71 @@ class FinalGen:
 
         return ['add $sp, $sp, %s' % framelength, 'sw $ra, ($sp)'] + main
 
+    def init_call(self, func_name):
+        lookup_res = self.table.lookup(func_name)
+        if self.table.get_current_nesting_level == lookup_res.nesting_level:
+            return ['lw $t0, -4($sp)', 'sw $t0, -4($fp)']
+
+        return ['sw $sp, -4($fp)']
+
+    def exit_scope(self, func):
+        #if self.table.get_current_nesting_level() == 0:
+        #    return []
+
+        framelength = self.table.lookup(func).entity.frame_length
+        return ['add $sp, $sp -%s' % framelength]
+
+    def setup_parameters(self, quads):
+        ret = []
+
+        i = 0
+        for quad in quads:
+            if quad.term1 == 'cv':
+                ret += self.loadvr(quad.term0, 0)
+                ret += ['sw $t0, -%s($fp)' % (12 + i * 4)]
+
+            if quad.term1 == 'ref':
+                caller_nesting_level = self.table.get_current_nesting_level()
+                lookup_res_var = self.table.lookup(quad.term0)
+                print(quad.term0)
+                print('func re %s and var re %s' %
+                      (caller_nesting_level, lookup_res_var.nesting_level))
+                print(lookup_res_var)
+                if caller_nesting_level == lookup_res_var.nesting_level:
+                    if isinstance(lookup_res_var.entity, ParameterEntity
+                                  ) and lookup_res_var.entity.mode == 'ref':
+                        ret += [
+                            'lw $t0, -%s($sp)' % lookup_res_var.entity.offset,
+                            'sw $t0, -%s($fp)' % (12 + 4 * i)
+                        ]
+                    else:
+                        ret += [
+                            'add $t0, $sp, -%s' % lookup_res_var.entity.offset,
+                            'sw $t0, -%s($fp)' % (12 + 4 * i)
+                        ]
+                else:
+                    ret += self.gnlvcode(quad.term0)
+
+                    if isinstance(lookup_res_var.entity, ParameterEntity
+                                  ) and lookup_res_var.entity.mode == 'ref':
+                        ret += [
+                            'lw $t0, ($t0)',
+                            'sw $t0, -%s($fp)' % (12 + 4 * i)
+                        ]
+                    else:
+                        ret += ['sw $t0, -%s($fp)' % (12 + 4 * i)]
+
+            if quad.term1 == 'ret':
+                lookup_res = self.table.lookup(quad.term0)
+                ret += [
+                    'add $t0, $sp, -%s' % lookup_res.entity.offset,
+                    'sw $t0, -8($fp)'
+                ]
+
+            i += 1
+
+        return ret
+
     def translate_quad(self, quad):
         qid = ['L_%s:' % quad.id]
 
@@ -580,10 +711,12 @@ class FinalGen:
                 1, quad.target)
 
         #TODO: Should check this later
-        if quad.op == 'int':
-            return qid + self.loadvr('0', 1) + self.storerv(1, quad.term0)
+        if quad.op == 'int' or quad.op == 'par':
+            return []
+            #return qid + self.loadvr('0', 1) + self.storerv(1, quad.term0)
 
         if quad.op == '+':
+            #print(quad)
             return qid + self.loadvr(quad.term0, 1) + self.loadvr(
                 quad.term1, 2) + ['add $t1, $t1, $t2'] + self.storerv(
                     1, quad.target)
@@ -629,6 +762,29 @@ class FinalGen:
         if quad.op == '<=':
             return qid + self.loadvr(quad.term0, 1) + self.loadvr(
                 quad.term1, 2) + ['ble $t1, $t2, L_%s' % quad.target]
+
+        if quad.op == 'retv':
+            return qid + self.loadvr(quad.term0, 1) + [
+                'lw $t0, -8($sp)', 'sw $t1, ($t0)'
+            ] + self.jump_to_ra()
+
+        if quad.op == 'call':
+            return self.init_call(quad.term0) + qid + ['jal %s' % quad.term0
+                                                       ] + self.exit_scope(
+                                                           quad.term0)
+
+        if quad.op == 'end_block':
+            return []
+
+        if quad.op == 'out':
+            return qid + self.loadvr(quad.term0, 1) + [
+                'li $v0, 1', 'add $a0, $t1, $zero', 'syscall',
+                'addi $a0, $0, 0xA', 'addi $v0, $0, 0XB', 'syscall'
+            ]
+
+        if quad.op == 'inp':
+            return qid + ['li $v0, 5', 'syscall', 'add $t3, $v0, $zero'
+                          ] + self.storerv(3, quad.term0)
 
         raise Exception('Unsupported quad type to translate: %s' % str(quad))
 
@@ -693,6 +849,7 @@ class SyntaxAnal:
         self.parse_subprograms()
         self.parse_statements()
 
+        self.table.fill_in_framelength_on_callee()
         self.final.generate_block()
         self.table.destroy_scope()
 
@@ -950,6 +1107,7 @@ class SyntaxAnal:
         self.consume('return')
         exp = self.parse_expression()
         self.quad_gen.genquad('retv', exp, '_', '_')
+        #self.table.add_entity(VariableEntity('retv'
 
         if not self.table.am_i_inside_function():
             raise CompilationError(
@@ -989,11 +1147,13 @@ class SyntaxAnal:
             self.consume('in')
             par = self.parse_expression()
             self.quad_gen.genquad('par', par, 'cv', '_')
+            #self.table.add_entity(ParameterEntity(par, 'cv'))
             return 'cv'
         else:
             self.consume('inout')
             par = self.consume('id').value
             self.quad_gen.genquad('par', par, 'ref', '_')
+            #self.table.add_entity(ParameterEntity(par, 'ref'))
             return 'ref'
 
     def parse_condition(self):
@@ -1126,8 +1286,9 @@ class SyntaxAnal:
             par_types = self.parse_actualpars()
             self.ensure_a_valid_function(fn_name)
             self.ensure_signature(fn_name, par_types)
-            retval = self.quad_gen.newtemp()
+            retval = self.quad_gen.newtemp(False)
             self.quad_gen.genquad('par', retval, 'ret', '_')
+            self.table.add_entity(ParameterEntity(retval, 'ret'))
             return retval
 
         return None

@@ -19,7 +19,7 @@ declare x,y,z enddeclare
                      a:=v/b
                   endif;
                   k:=x
-         endprocedure
+            endprocedure
 
             q:=y+w;
             z:=q*x;

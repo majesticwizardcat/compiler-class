@@ -1,3 +1,5 @@
+// should compile
+
 program branch
 	declare x, y, z enddeclare
 	x := 1;

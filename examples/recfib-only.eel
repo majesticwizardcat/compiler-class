@@ -1,0 +1,19 @@
+// should compile
+
+program recfib
+	declare x, y enddeclare
+	function find(in x)
+		if x = 0 then
+			return 0
+		endif;
+		if x = 1 then
+			return 1
+		endif;
+
+		return find(in x - 1) + find (in x - 2)
+	endfunction
+
+	x := 5;
+	y := 42;
+	y := find(in x)
+endprogram
