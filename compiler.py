@@ -788,6 +788,10 @@ class FinalGen:
 
         raise Exception('Unsupported quad type to translate: %s' % str(quad))
 
+    def formatted(self):
+        return '\n'.join('\t%s' % line if not line.endswith(':') else line
+                         for line in self.generated)
+
 
 class SyntaxAnal:
     def __init__(self, tokens):
@@ -1405,6 +1409,7 @@ if __name__ == '__main__':
     sourcename = basename.split('.')[0]
     intermediate_filename = '%s.eeli' % sourcename
     c_filename = '%s.c' % sourcename
+    final_filename = '%s.s' % sourcename
 
     with open(args.source_file, 'r') as source_file:
         source = source_file.read()
@@ -1421,7 +1426,9 @@ if __name__ == '__main__':
         #    c_file.write(cbackend.convert())
         #print('Compiling C code [%s] to [%s]...' % (c_filename, sourcename))
         #subprocess.call(['cc', '-o', sourcename, c_filename])
-        print('\n'.join(syntax_anal.final.generated))
+        print('Putting final code in [%s]...' % final_filename)
+        with open(final_filename, 'w') as s_file:
+            s_file.write(syntax_anal.final.formatted())
         #print(syntax_anal.final.generated)
     except CompilationError as e:
         print('%s:%s\n' % (args.source_file, str(e)))
