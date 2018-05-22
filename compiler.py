@@ -139,7 +139,6 @@ class Lexer:
     def tokenize(self):
         tokens = []
         while len(self.source()) > 0:
-            #print('source to lex: "%s"' % self.source())
             for name, regex in INVALID_TOKENS:
                 match = regex.search(self.source())
                 if match:
@@ -149,8 +148,6 @@ class Lexer:
             for name, regex in IGNORED_TOKENS:
                 match = regex.search(self.source())
                 if match:
-                    #print('Ignored token: ', name)
-                    #print('Ignored token match: ', match.group())
                     self.advance_from_match(match)
                     break
             else:
@@ -160,8 +157,6 @@ class Lexer:
                     match = regex.search(self.source())
                     if match and EXTRA_VALIDATORS[name](match.group()):
                         found_token = True
-                        #print('Matched token: ', name)
-                        #print('Match: ', match.span())
 
                         value = match.group() if len(
                             match.groups()) == 0 else match.group(1)
@@ -175,7 +170,6 @@ class Lexer:
                     raise InvalidTokenError(
                         pos=self.cursor.position(),
                         token_type=self.source().split()[0])
-            #print('source after lex: "%s"' % self.source())
         return tokens
 
 
@@ -196,7 +190,6 @@ class StringCursor:
         linebreaks = list(
             newline.finditer(
                 self.string, pos=self.char_pos, endpos=new_char_pos))
-        #print('found linebreaks: ', linebreaks)
 
         inbetween_rows = len(linebreaks)
         row = self.pos.row
@@ -390,9 +383,6 @@ class SymbolTable:
         self.scopes.append(Scope(len(self.scopes)))
         self.scopes[-1].entities += params
 
-        #print('scopes now', self.scopes)
-        #print('entities now', self.scopes[-1].entities)
-
     def destroy_scope(self):
         if not self.is_callee_framelength_filled_in():
             raise Exception
@@ -422,7 +412,6 @@ class SymbolTable:
             if self.find_closest_on_current_scope_with_offset() is not None else 12
 
         self.scopes[-1].entities.append(entity)
-        #print('add_entity(): entities now', self.scopes[-1].entities)
 
     def find_closest_on_current_scope_with_offset(self):
         for entity in self.scopes[-1].entities[::-1]:
@@ -577,15 +566,10 @@ class FinalGen:
         else:
             start_quad = self.table.get_cause_of_birth().start_quad
 
-        #print('new generate_block() invocation')
-        #print('nesting level', current_level, 'start quad', start_quad)
         quads = self.quad_gen.get_and_mark_quads_from(start_quad)
 
         par_quads = []
-        #print(quads)
         for i, quad in enumerate(quads):
-            #print(quad)
-
             if quad.op == 'par':
                 par_quads += [quad]
             else:
@@ -631,9 +615,6 @@ class FinalGen:
         return ['sw $sp, -4($fp)']
 
     def exit_scope(self, func):
-        #if self.table.get_current_nesting_level() == 0:
-        #    return []
-
         framelength = self.table.lookup(func).entity.frame_length
         return ['add $sp, $sp -%s' % framelength]
 
@@ -698,13 +679,10 @@ class FinalGen:
             return qid + self.loadvr(quad.term0, 1) + self.storerv(
                 1, quad.target)
 
-        #TODO: Should check this later
         if quad.op == 'int' or quad.op == 'par':
             return []
-            #return qid + self.loadvr('0', 1) + self.storerv(1, quad.term0)
 
         if quad.op == '+':
-            #print(quad)
             return qid + self.loadvr(quad.term0, 1) + self.loadvr(
                 quad.term1, 2) + ['add $t1, $t1, $t2'] + self.storerv(
                     1, quad.target)
@@ -806,9 +784,7 @@ class SyntaxAnal:
         return self.tokens[0].type
 
     def consume(self, type):
-        #print('Trying to cunsume %s' % type)
         if self.peek(type):
-            #print('consumed %s ' % type)
             tk = self.tokens.pop(0)
             self.last_pos = tk.pos
             return tk
@@ -829,7 +805,6 @@ class SyntaxAnal:
         self.final.generate_jump_to_main()
         self.quad_gen.genquad('begin_block', name, '_', '_')
         self.parse_block()
-        # TODO: halt only on the main program (how to decide which one is main?)
         self.final.generate_program_exit(self.quad_gen.nextquad())
         self.quad_gen.genquad('halt', '_', '_', '_')
         self.quad_gen.genquad('end_block', name, '_', '_')
@@ -1099,7 +1074,6 @@ class SyntaxAnal:
         self.consume('return')
         exp = self.parse_expression()
         self.quad_gen.genquad('retv', exp, '_', '_')
-        #self.table.add_entity(VariableEntity('retv'
 
         if not self.table.am_i_inside_function():
             raise CompilationError(
@@ -1139,13 +1113,11 @@ class SyntaxAnal:
             self.consume('in')
             par = self.parse_expression()
             self.quad_gen.genquad('par', par, 'cv', '_')
-            #self.table.add_entity(ParameterEntity(par, 'cv'))
             return 'cv'
         else:
             self.consume('inout')
             par = self.consume('id').value
             self.quad_gen.genquad('par', par, 'ref', '_')
-            #self.table.add_entity(ParameterEntity(par, 'ref'))
             return 'ref'
 
     def parse_condition(self):
