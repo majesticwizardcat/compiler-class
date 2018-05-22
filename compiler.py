@@ -557,6 +557,9 @@ class FinalGen:
     def generate_jump_to_main(self):
         self.generated += ['j L_0']
 
+    def generate_program_exit(self):
+        self.generated += ['addiu $v0, $zero, 10', 'syscall']
+
     def new_scope_setup(self):
         framelength = self.table.get_current_framelength()
         if self.table.get_current_nesting_level() == 0:
@@ -682,6 +685,7 @@ class SyntaxAnal:
         self.quad_gen.genquad('halt', '_', '_', '_')
         self.quad_gen.genquad('end_block', name, '_', '_')
         self.consume('endprogram')
+        self.final.generate_program_exit()
 
     def parse_block(self):
         self.table.create_scope()
