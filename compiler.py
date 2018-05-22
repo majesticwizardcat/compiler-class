@@ -623,8 +623,8 @@ class FinalGen:
     def generate_jump_to_main(self):
         self.generated += ['j L_0']
 
-    def generate_program_exit(self):
-        self.generated += ['addiu $v0, $zero, 10', 'syscall']
+    def generate_program_exit(self, quad_id):
+        self.generated += ['L_%s:' % quad_id, 'li $v0, 10', 'syscall']
 
     def new_scope_setup(self):
         framelength = self.table.get_current_framelength()
@@ -778,12 +778,12 @@ class FinalGen:
 
         if quad.op == 'out':
             return qid + self.loadvr(quad.term0, 1) + [
-                'li $v0, 1', 'add $a0, $t1, $zero', 'syscall',
-                'addi $a0, $0, 0xA', 'addi $v0, $0, 0XB', 'syscall'
+                'li $v0, 1', 'move $a0, $t1', 'syscall', 'li $a0, 0xA',
+                'li $v0, 0XB', 'syscall'
             ]
 
         if quad.op == 'inp':
-            return qid + ['li $v0, 5', 'syscall', 'add $t3, $v0, $zero'
+            return qid + ['li $v0, 5', 'syscall', 'move $t3, $v0'
                           ] + self.storerv(3, quad.term0)
 
         raise Exception('Unsupported quad type to translate: %s' % str(quad))
@@ -842,10 +842,10 @@ class SyntaxAnal:
         self.quad_gen.genquad('begin_block', name, '_', '_')
         self.parse_block()
         # TODO: halt only on the main program (how to decide which one is main?)
+        self.final.generate_program_exit(self.quad_gen.nextquad())
         self.quad_gen.genquad('halt', '_', '_', '_')
         self.quad_gen.genquad('end_block', name, '_', '_')
         self.consume('endprogram')
-        self.final.generate_program_exit()
 
     def parse_block(self):
         self.table.create_scope()
