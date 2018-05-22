@@ -1225,7 +1225,7 @@ class SyntaxAnal:
 
     def parse_expression(self):
         sign = self.parse_optionalsign()
-        term = sign + self.parse_term()
+        term = self.parse_term()
 
         while self.peek('plus') or self.peek('minus'):
             op = self.parse_addoper()
@@ -1234,7 +1234,12 @@ class SyntaxAnal:
             self.quad_gen.genquad(op, term, secterm, target)
             term = target
 
-        return term
+        signed_term = term
+        if sign == '-':
+            signed_term = self.quad_gen.newtemp()
+            self.quad_gen.genquad('*', term, '-1', signed_term)
+
+        return signed_term
 
     def parse_term(self):
         factor = self.parse_factor()
