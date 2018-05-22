@@ -598,10 +598,6 @@ class FinalGen:
             if quad.term1 == 'ref':
                 caller_nesting_level = self.table.get_current_nesting_level()
                 lookup_res_var = self.table.lookup(quad.term0)
-                print(quad.term0)
-                print('func re %s and var re %s' %
-                      (caller_nesting_level, lookup_res_var.nesting_level))
-                print(lookup_res_var)
                 if caller_nesting_level == lookup_res_var.nesting_level:
                     if isinstance(lookup_res_var.entity, ParameterEntity
                                   ) and lookup_res_var.entity.mode == 'ref':
