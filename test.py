@@ -118,6 +118,7 @@ class SymbolTableTest(unittest.TestCase):
                              ],
                              nesting_level=3))
 
+        tbl.fill_in_framelength_on_callee()
         tbl.destroy_scope()
         self.assertEqual(tbl.scopes[-1],
                          Scope(
@@ -144,6 +145,7 @@ class SymbolTableTest(unittest.TestCase):
         tbl.add_argument(Argument("man", "ref"))
         tbl.create_scope()
         tbl.add_entity(VariableEntity("baz"))
+        tbl.fill_in_framelength_on_callee()
         tbl.destroy_scope()
 
         self.assertEqual(tbl.scopes[-1].entities, [
@@ -160,6 +162,7 @@ class SymbolTableTest(unittest.TestCase):
         tbl = SymbolTable()
         tbl.create_scope()
         tbl.add_entity(VariableEntity("foo"))
+        tbl.fill_in_framelength_on_callee()
         tbl.destroy_scope()
 
     def test_add_entity_on_empty_nested_scope_gives_correct_offset(self):
