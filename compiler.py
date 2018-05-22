@@ -482,6 +482,9 @@ class SymbolTable:
 
         return var_entities
 
+    def get_current_framelength(self):
+        return 12 + self.get_var_entities_on_scope(self.scopes[-1]) * 4
+
 
 class FinalGen:
     def __init__(self, table, quad_gen=None):
@@ -548,12 +551,20 @@ class FinalGen:
             start_quad = self.table.get_cause_of_birth().start_quad
 
         quads = self.quad_gen.quad_list[start_quad:]
-        self.generated.append(
-            reduce(operator.add,
-                   (self.translate_quad(quad) for quad in quads)))
+        for quad in quads:
+            self.generated += self.translate_quad(quad)
+
+    def generate_jump_to_main(self):
+        self.generated += ['j L_0']
 
     def new_scope_setup(self):
-        return ['add $sp, $sp, 12', 'sw $ra, -12($sp)']
+        framelength = self.table.get_current_framelength()
+        if self.table.get_current_nesting_level() == 0:
+            main = ['move $s0, $sp']
+        else:
+            main = []
+
+        return ['add $sp, $sp, %s' % framelength, 'sw $ra, -12($sp)'] + main
 
     def translate_quad(self, quad):
         qid = ['L_%s:' % quad.id]
@@ -664,6 +675,7 @@ class SyntaxAnal:
     def parse_program(self):
         self.consume('program')
         name = self.consume('id').value
+        self.final.generate_jump_to_main()
         self.quad_gen.genquad('begin_block', name, '_', '_')
         self.parse_block()
         # TODO: halt only on the main program (how to decide which one is main?)
@@ -1239,7 +1251,8 @@ if __name__ == '__main__':
         #    c_file.write(cbackend.convert())
         #print('Compiling C code [%s] to [%s]...' % (c_filename, sourcename))
         #subprocess.call(['cc', '-o', sourcename, c_filename])
-        print('\n'.join(syntax_anal.final.generated[0]))
+        print('\n'.join(syntax_anal.final.generated))
+        #print(syntax_anal.final.generated)
     except CompilationError as e:
         print('%s:%s\n' % (args.source_file, str(e)))
         sys.exit(1)
